@@ -73,23 +73,41 @@ function doPost(e) {
   }
 
   const payload = JSON.parse(e.postData.contents);
-  const sheet = getOrCreateSheet();
 
-  if (payload.type === "DELETE") {
-    const old = payload.old_record;
-    const code = old ? formatOrderCode(old.order_date, old.order_number) : null;
-    const rowIndex = code ? findRowByCode(sheet, code) : -1;
-    if (rowIndex > 0) sheet.deleteRow(rowIndex);
-  } else {
-    const order = payload.record;
-    const code = formatOrderCode(order.order_date, order.order_number);
-    const rowIndex = findRowByCode(sheet, code);
-    const values = orderToRow(order);
-    if (rowIndex > 0) {
-      sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([values]);
+  // A bulk action on the site (e.g. auto-provisioning 300 order numbers for
+  // a new date) fires many near-simultaneous webhook calls. Without a lock,
+  // concurrent executions can all read the same "last row" before any of
+  // them appends, then collide writing to it — rows silently overwrite each
+  // other and land out of order. Serialize writes so each call sees the
+  // sheet as it actually is.
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(25000);
+  } catch (err) {
+    return jsonResponse({ ok: false, error: "timed out waiting for sheet lock" });
+  }
+
+  try {
+    const sheet = getOrCreateSheet();
+
+    if (payload.type === "DELETE") {
+      const old = payload.old_record;
+      const code = old ? formatOrderCode(old.order_date, old.order_number) : null;
+      const rowIndex = code ? findRowByCode(sheet, code) : -1;
+      if (rowIndex > 0) sheet.deleteRow(rowIndex);
     } else {
-      sheet.appendRow(values);
+      const order = payload.record;
+      const code = formatOrderCode(order.order_date, order.order_number);
+      const rowIndex = findRowByCode(sheet, code);
+      const values = orderToRow(order);
+      if (rowIndex > 0) {
+        sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([values]);
+      } else {
+        sheet.appendRow(values);
+      }
     }
+  } finally {
+    lock.releaseLock();
   }
 
   return jsonResponse({ ok: true });
