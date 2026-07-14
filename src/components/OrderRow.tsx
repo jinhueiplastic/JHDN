@@ -90,14 +90,14 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
       </td>
 
       <td className="px-2 py-2">
-        <div className="flex max-w-[240px] flex-wrap gap-1">
+        <div className="flex max-w-[280px] flex-wrap gap-2">
           {drivers.map((d) => (
             <button
               type="button"
               key={d.id}
               disabled={isReturned}
               onClick={() => handleDriverSelect(d.name)}
-              className={`rounded-full border px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
                 order.driver_name === d.name
                   ? "border-neutral-900 bg-neutral-900 text-white"
                   : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
