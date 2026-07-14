@@ -173,11 +173,13 @@ export default function OrdersDashboard() {
       ...patch,
     };
 
+    // `unreturned_date` doubles as "the date this status became true": the
+    // day it was flagged unreturned, or the day it was confirmed returned.
     if (merged.status === "unreturned" && !merged.unreturned_date) {
       merged.unreturned_date = todayStr();
     }
-    if (merged.status !== "unreturned") {
-      merged.unreturned_date = null;
+    if (merged.status === "returned") {
+      merged.unreturned_date = todayStr();
     }
 
     const { data, error } = await supabase
@@ -307,14 +309,18 @@ export default function OrdersDashboard() {
 
           <button
             type="button"
-            onClick={() => void handleBulkUpdate({ status: "unreturned" })}
+            onClick={() =>
+              void handleBulkUpdate({ status: "unreturned", unreturned_date: todayStr() })
+            }
             className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
           >
             設為未回單
           </button>
           <button
             type="button"
-            onClick={() => void handleBulkUpdate({ status: "returned", unreturned_date: null })}
+            onClick={() =>
+              void handleBulkUpdate({ status: "returned", unreturned_date: todayStr() })
+            }
             className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
           >
             設為已回單
@@ -371,7 +377,7 @@ export default function OrdersDashboard() {
               <th className="px-2 py-2">司機</th>
               <th className="px-2 py-2">外縣市</th>
               <th className="px-2 py-2">價格</th>
-              <th className="px-3 py-2">未回單日期</th>
+              <th className="px-3 py-2">{filter === "returned" ? "已回單日期" : "未回單日期"}</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>

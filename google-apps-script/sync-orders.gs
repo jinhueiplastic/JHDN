@@ -30,13 +30,9 @@
  *      -> 執行身分：我
  *      -> 具有存取權的使用者：任何人
  *      -> 部署，複製產生的網址（結尾是 /exec）
- * 5. 到 Supabase 專案 -> Database -> Webhooks -> Create a new hook：
- *      Table: JHDN_orders
- *      Events: 勾選 Insert、Update、Delete
- *      Type: HTTP Request，Method: POST
- *      URL: 貼上第 4 步的網址，後面加上 `?token=你在 WEBHOOK_TOKEN 設的字串`
- *      （例如 https://script.google.com/macros/s/xxxx/exec?token=abc123）
- *    存檔後，之後在網站上新增/修改/刪除單號，幾秒內就會反映到 Sheet。
+ * 5. 到 Supabase SQL Editor 執行 supabase/migrations/0005_orders_webhook_trigger.sql
+ *    （把裡面的網址、token 換成你自己的），存檔後，之後在網站上新增/修改/刪除
+ *    單號，幾秒內就會反映到 Sheet。
  * 6. 之後也可以隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑一次。
  */
 
@@ -45,10 +41,7 @@ const STATUS_LABEL = {
   unreturned: "未回單",
 };
 
-// 第一欄放 Supabase 的 id，用來在即時同步時找到「這是哪一列」，
-// 不要手動刪除或搬動這一欄。
 const HEADERS = [
-  "ID",
   "日期",
   "單號",
   "狀態",
@@ -69,7 +62,7 @@ function onOpen() {
     .addToUi();
 }
 
-/** Supabase Database Webhook 打進來的即時同步入口 */
+/** Supabase Database Webhook (或 SQL 觸發器) 打進來的即時同步入口 */
 function doPost(e) {
   const props = PropertiesService.getScriptProperties();
   const expectedToken = props.getProperty("WEBHOOK_TOKEN");
@@ -83,12 +76,14 @@ function doPost(e) {
   const sheet = getOrCreateSheet();
 
   if (payload.type === "DELETE") {
-    const id = payload.old_record && payload.old_record.id;
-    const rowIndex = id ? findRowById(sheet, id) : -1;
+    const old = payload.old_record;
+    const code = old ? formatOrderCode(old.order_date, old.order_number) : null;
+    const rowIndex = code ? findRowByCode(sheet, code) : -1;
     if (rowIndex > 0) sheet.deleteRow(rowIndex);
   } else {
     const order = payload.record;
-    const rowIndex = findRowById(sheet, order.id);
+    const code = formatOrderCode(order.order_date, order.order_number);
+    const rowIndex = findRowByCode(sheet, code);
     const values = orderToRow(order);
     if (rowIndex > 0) {
       sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([values]);
@@ -125,21 +120,21 @@ function getOrCreateSheet() {
   return sheet;
 }
 
-function findRowById(sheet, id) {
+/** 用「單號」欄（民國年月日+序號的完整代碼）找出這是哪一列，天生不會重複 */
+function findRowByCode(sheet, code) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return -1;
-  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (ids[i][0] === id) return i + 2; // +2: 1-indexed, plus header row
+  const codes = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  for (let i = 0; i < codes.length; i++) {
+    if (String(codes[i][0]) === code) return i + 2; // +2: 1-indexed, plus header row
   }
   return -1;
 }
 
 function orderToRow(o) {
   return [
-    o.id,
     o.order_date,
-    formatOrderNumber(o.order_number),
+    formatOrderCode(o.order_date, o.order_number),
     STATUS_LABEL[o.status] || o.status,
     o.driver_name || "",
     o.out_of_county ? "是" : "否",
@@ -215,4 +210,11 @@ function fetchAllOrders(supabaseUrl, anonKey) {
 
 function formatOrderNumber(n) {
   return String(n).padStart(4, "0");
+}
+
+/** 完整單號代碼，例如 "11507140001"（民國年 + 月 + 日 + 4 位序號），跟網站上顯示的一致 */
+function formatOrderCode(dateStr, orderNumber) {
+  const parts = dateStr.split("-");
+  const minguoYear = parseInt(parts[0], 10) - 1911;
+  return `${minguoYear}${parts[1]}${parts[2]}${formatOrderNumber(orderNumber)}`;
 }
