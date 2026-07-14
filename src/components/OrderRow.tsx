@@ -1,15 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import {
-  formatOrderCode,
-  Order,
-  ORDER_STATUS_LABEL,
-  ORDER_STATUSES,
-  OrderInput,
-  OrderStatus,
-} from "@/types/order";
+import { formatOrderCode, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
+import StatusBadge from "@/components/StatusBadge";
+
+type PriceField = "order_price" | "cash_sale_price" | "invoice_price";
+
+const PRICE_LABELS: Record<PriceField, string> = {
+  order_price: "填單價",
+  cash_sale_price: "現銷價",
+  invoice_price: "發票金額",
+};
+
+function currentPriceType(order: Order): PriceField | "" {
+  if (order.order_price != null) return "order_price";
+  if (order.cash_sale_price != null) return "cash_sale_price";
+  if (order.invoice_price != null) return "invoice_price";
+  return "";
+}
 
 interface Props {
   order: Order;
@@ -22,22 +31,43 @@ interface Props {
 // (each field commits independently to the row's own `order`), so it never
 // needs to resync from the `order` prop after the initial mount.
 export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) {
-  const [orderPrice, setOrderPrice] = useState(order.order_price?.toString() ?? "");
-  const [cashSalePrice, setCashSalePrice] = useState(order.cash_sale_price?.toString() ?? "");
-  const [invoicePrice, setInvoicePrice] = useState(order.invoice_price?.toString() ?? "");
+  const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
+  const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
 
   const isShipped = order.status === "shipped";
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
 
-  function commitNumber(
-    field: "order_price" | "cash_sale_price" | "invoice_price",
-    raw: string
-  ) {
-    const parsed = raw === "" ? null : Number(raw);
-    if (parsed === order[field]) return;
-    void onUpdate(order, { [field]: parsed });
+  function handleDriverSelect(name: string) {
+    if (isShipped) {
+      // Picking a driver on a 出貨單 row is how staff confirms the slip
+      // came back, so it doubles as the shipped -> 已回單 transition.
+      void onUpdate(order, { driver_name: name, status: "returned" });
+    } else {
+      void onUpdate(order, { driver_name: name });
+    }
   }
+
+  function handlePriceTypeChange(next: string) {
+    setPriceType(next as PriceField | "");
+    setPriceValue("");
+  }
+
+  function commitPriceValue(raw: string) {
+    if (!priceType) return;
+    const parsed = raw === "" ? null : Number(raw);
+    void onUpdate(order, {
+      order_price: priceType === "order_price" ? parsed : null,
+      cash_sale_price: priceType === "cash_sale_price" ? parsed : null,
+      invoice_price: priceType === "invoice_price" ? parsed : null,
+    });
+  }
+
+  const priceSummary = [
+    order.order_price != null && `填單價 ${order.order_price}`,
+    order.cash_sale_price != null && `現銷價 ${order.cash_sale_price}`,
+    order.invoice_price != null && `發票 ${order.invoice_price}`,
+  ].filter(Boolean);
 
   return (
     <tr className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
@@ -46,33 +76,50 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
       </td>
 
       <td className="px-2 py-2">
-        <select
-          value={order.status}
-          onChange={(e) => void onUpdate(order, { status: e.target.value as OrderStatus })}
-          className="input py-1 text-sm"
-        >
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {ORDER_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={order.status} />
+          {isShipped && (
+            <button
+              type="button"
+              onClick={() => void onUpdate(order, { status: "unreturned" })}
+              className="text-xs text-amber-600 hover:underline"
+            >
+              標記未回單
+            </button>
+          )}
+          {!isShipped && (
+            <button
+              type="button"
+              onClick={() => void onUpdate(order, { status: "shipped" })}
+              className="text-xs text-neutral-400 hover:underline"
+            >
+              改回出貨單
+            </button>
+          )}
+        </div>
       </td>
 
       <td className="px-2 py-2">
-        <select
-          value={order.driver_name ?? ""}
-          disabled={isReturned}
-          onChange={(e) => void onUpdate(order, { driver_name: e.target.value || null })}
-          className="input py-1 text-sm disabled:bg-neutral-100 disabled:text-neutral-400"
-        >
-          <option value="">(未選擇)</option>
+        <div className="flex max-w-[240px] flex-wrap gap-1">
           {drivers.map((d) => (
-            <option key={d.id} value={d.name}>
+            <button
+              type="button"
+              key={d.id}
+              disabled={isReturned}
+              onClick={() => handleDriverSelect(d.name)}
+              className={`rounded-full border px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                order.driver_name === d.name
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+              }`}
+            >
               {d.name}
-            </option>
+            </button>
           ))}
-        </select>
+          {drivers.length === 0 && (
+            <span className="text-xs text-neutral-400">請先到下面新增司機</span>
+          )}
+        </div>
       </td>
 
       <td className="px-2 py-2 text-center">
@@ -91,46 +138,33 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
 
       <td className="px-2 py-2">
         {isShipped ? (
-          <input
-            type="number"
-            step="0.01"
-            value={orderPrice}
-            onChange={(e) => setOrderPrice(e.target.value)}
-            onBlur={(e) => commitNumber("order_price", e.target.value)}
-            className="input w-24 py-1 text-sm"
-          />
+          <div className="flex items-center gap-1">
+            <select
+              value={priceType}
+              onChange={(e) => handlePriceTypeChange(e.target.value)}
+              className="input py-1 text-sm"
+            >
+              <option value="">(未選擇)</option>
+              <option value="order_price">填單價</option>
+              <option value="cash_sale_price">現銷價</option>
+              <option value="invoice_price">發票金額</option>
+            </select>
+            {priceType && (
+              <input
+                type="number"
+                step="0.01"
+                value={priceValue}
+                onChange={(e) => setPriceValue(e.target.value)}
+                onBlur={(e) => commitPriceValue(e.target.value)}
+                placeholder={PRICE_LABELS[priceType]}
+                className="input w-20 py-1 text-sm"
+              />
+            )}
+          </div>
         ) : (
-          order.order_price ?? "-"
-        )}
-      </td>
-
-      <td className="px-2 py-2">
-        {isShipped ? (
-          <input
-            type="number"
-            step="0.01"
-            value={cashSalePrice}
-            onChange={(e) => setCashSalePrice(e.target.value)}
-            onBlur={(e) => commitNumber("cash_sale_price", e.target.value)}
-            className="input w-24 py-1 text-sm"
-          />
-        ) : (
-          order.cash_sale_price ?? "-"
-        )}
-      </td>
-
-      <td className="px-2 py-2">
-        {isShipped ? (
-          <input
-            type="number"
-            step="0.01"
-            value={invoicePrice}
-            onChange={(e) => setInvoicePrice(e.target.value)}
-            onBlur={(e) => commitNumber("invoice_price", e.target.value)}
-            className="input w-24 py-1 text-sm"
-          />
-        ) : (
-          order.invoice_price ?? "-"
+          <span className="text-neutral-500">
+            {priceSummary.length > 0 ? priceSummary.join("、") : "-"}
+          </span>
         )}
       </td>
 

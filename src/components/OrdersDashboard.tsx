@@ -218,9 +218,7 @@ export default function OrdersDashboard() {
               <th className="px-2 py-2">狀態</th>
               <th className="px-2 py-2">司機</th>
               <th className="px-2 py-2">外縣市</th>
-              <th className="px-2 py-2">填單價</th>
-              <th className="px-2 py-2">現銷價</th>
-              <th className="px-2 py-2">發票金額</th>
+              <th className="px-2 py-2">價格</th>
               <th className="px-3 py-2">未回單日期</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -228,13 +226,13 @@ export default function OrdersDashboard() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
                   載入中…
                 </td>
               </tr>
             ) : visibleOrders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
                   這一天還沒有資料
                 </td>
               </tr>
