@@ -1,12 +1,11 @@
-export type OrderStatus = "shipped" | "returned" | "unreturned";
+export type OrderStatus = "returned" | "unreturned";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  shipped: "出貨單",
   returned: "已回單",
   unreturned: "未回單",
 };
 
-export const ORDER_STATUSES: OrderStatus[] = ["shipped", "returned", "unreturned"];
+export const ORDER_STATUSES: OrderStatus[] = ["unreturned", "returned"];
 
 export interface Order {
   id: string;

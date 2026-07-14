@@ -1,6 +1,6 @@
 # JHDN 出貨單管理
 
-出貨單 / 已回單 / 未回單 追蹤網站。前端用 Next.js，資料存在 Supabase，另外提供一個
+未回單 / 已回單 追蹤網站。前端用 Next.js，資料存在 Supabase，另外提供一個
 Google Apps Script，定期把 Supabase 的資料同步一份到 Google Sheet 當報表/備份。
 
 > Supabase 專案跟公司其他網站共用，所有這個專案專用的資料表、函式、政策都加上
@@ -21,9 +21,10 @@ npm run dev
 這個 sandbox 環境連不到外部 Supabase（網路政策擋掉了），所以資料表要你自己手動建立：
 
 1. 打開 Supabase 專案 -> SQL Editor -> New query
-2. 依序貼上並執行這兩個檔案的完整內容：
-   - [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql)（出貨單主表）
+2. 依序貼上並執行這三個檔案的完整內容：
+   - [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql)（訂單主表）
    - [`supabase/migrations/0002_drivers.sql`](./supabase/migrations/0002_drivers.sql)（司機名單，網站上用點選的司機清單就是存在這張表）
+   - [`supabase/migrations/0003_drop_shipped_status.sql`](./supabase/migrations/0003_drop_shipped_status.sql)（把狀態簡化成只剩未回單/已回單兩種）
 3. 每個都 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -32,22 +33,24 @@ npm run dev
 |---|---|---|
 | `order_date` | date | 日期 |
 | `order_number` | smallint (1-300) | 單號，畫面上會補零顯示成 0001-0300 |
-| `status` | text | `shipped`(出貨單) / `returned`(已回單) / `unreturned`(未回單) |
-| `driver_name` | text | 司機姓名（出貨單/未回單狀態下可填寫） |
+| `status` | text | `unreturned`(未回單，預設) / `returned`(已回單) |
+| `driver_name` | text | 司機姓名 |
 | `out_of_county` | boolean | 是否外縣市 |
-| `order_price` | numeric | 填單價 |
+| `order_price` | numeric | 填單價（跟現銷價、發票金額三選一） |
 | `cash_sale_price` | numeric | 當日現銷價錢 |
-| `invoice_price` | numeric | 有開發票的價錢（沒開發票就留空） |
-| `unreturned_date` | date | 標記「未回單」當下自動記錄的日期 |
+| `invoice_price` | numeric | 有開發票的價錢 |
+| `unreturned_date` | date | 這筆單號建立/標記未回單當下自動記錄的日期 |
 | `created_at` / `updated_at` | timestamptz | 自動填寫 |
 
 ## 3. 網站功能對照需求
 
-- **出貨單**：可填司機姓名、外縣市、填單價、當日現銷價錢、發票金額
-- **已回單**：唯讀顯示司機姓名、是否外縣市（資料承接自出貨單）
-- **未回單**：可備注司機姓名，切到這個狀態時自動填上今天日期（`unreturned_date`）
+- **未回單**（新建立單號的預設狀態）：可點選司機姓名、勾選外縣市、選擇價格類型
+  （填單價／現銷價／發票金額三選一）並填入金額；建立時自動記錄 `unreturned_date`
+- **已回單**：點選司機姓名會把這筆從未回單自動轉成已回單（代表司機的單已經回來了），
+  這個狀態下司機姓名、外縣市、價格都唯讀顯示，如果點錯了可以用「改回未回單」修正
 
-畫面上方可依日期查詢、依狀態（全部/出貨單/已回單/未回單）篩選，點一列資料即可編輯。
+畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
+不需要另外開視窗。頁面最下方有司機名單管理，新增一次司機之後，每一列都能點選。
 
 ## 4. Google Sheet 同步（Apps Script）
 
@@ -62,7 +65,7 @@ npm run dev
 |---|---|---|
 | A | 日期 | order_date |
 | B | 單號 | order_number（補零成 0001-0300） |
-| C | 狀態 | 出貨單 / 已回單 / 未回單 |
+| C | 狀態 | 未回單 / 已回單 |
 | D | 司機姓名 | driver_name |
 | E | 外縣市 | 是 / 否 |
 | F | 填單價 | order_price |

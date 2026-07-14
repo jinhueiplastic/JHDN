@@ -21,7 +21,6 @@
  */
 
 const STATUS_LABEL = {
-  shipped: "出貨單",
   returned: "已回單",
   unreturned: "未回單",
 };

@@ -1,9 +1,8 @@
 import { ORDER_STATUS_LABEL, OrderStatus } from "@/types/order";
 
 const STYLES: Record<OrderStatus, string> = {
-  shipped: "bg-amber-100 text-amber-800 border-amber-300",
   returned: "bg-green-100 text-green-800 border-green-300",
-  unreturned: "bg-red-100 text-red-800 border-red-300",
+  unreturned: "bg-amber-100 text-amber-800 border-amber-300",
 };
 
 export default function StatusBadge({ status }: { status: OrderStatus }) {

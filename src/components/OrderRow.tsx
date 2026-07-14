@@ -34,14 +34,13 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
   const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
   const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
 
-  const isShipped = order.status === "shipped";
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
 
   function handleDriverSelect(name: string) {
-    if (isShipped) {
-      // Picking a driver on a 出貨單 row is how staff confirms the slip
-      // came back, so it doubles as the shipped -> 已回單 transition.
+    if (isUnreturned) {
+      // Picking a driver on a 未回單 row is how staff confirms the slip
+      // came back, so it doubles as the unreturned -> 已回單 transition.
       void onUpdate(order, { driver_name: name, status: "returned" });
     } else {
       void onUpdate(order, { driver_name: name });
@@ -78,22 +77,13 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
       <td className="px-2 py-2">
         <div className="flex flex-col items-start gap-1">
           <StatusBadge status={order.status} />
-          {isShipped && (
+          {isReturned && (
             <button
               type="button"
               onClick={() => void onUpdate(order, { status: "unreturned" })}
-              className="text-xs text-amber-600 hover:underline"
-            >
-              標記未回單
-            </button>
-          )}
-          {!isShipped && (
-            <button
-              type="button"
-              onClick={() => void onUpdate(order, { status: "shipped" })}
               className="text-xs text-neutral-400 hover:underline"
             >
-              改回出貨單
+              改回未回單
             </button>
           )}
         </div>
@@ -123,21 +113,17 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
       </td>
 
       <td className="px-2 py-2 text-center">
-        {isUnreturned ? (
-          <span className="text-neutral-400">-</span>
-        ) : (
-          <input
-            type="checkbox"
-            checked={order.out_of_county}
-            disabled={isReturned}
-            onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
-            className="h-4 w-4 rounded border-neutral-300"
-          />
-        )}
+        <input
+          type="checkbox"
+          checked={order.out_of_county}
+          disabled={isReturned}
+          onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
+          className="h-4 w-4 rounded border-neutral-300"
+        />
       </td>
 
       <td className="px-2 py-2">
-        {isShipped ? (
+        {isUnreturned ? (
           <div className="flex items-center gap-1">
             <select
               value={priceType}

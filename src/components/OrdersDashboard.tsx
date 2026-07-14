@@ -82,7 +82,6 @@ export default function OrdersDashboard() {
   const counts = useMemo(() => {
     const c: Record<FilterTab, number> = {
       all: orders.length,
-      shipped: 0,
       returned: 0,
       unreturned: 0,
     };
@@ -112,13 +111,13 @@ export default function OrdersDashboard() {
       rows.push({
         order_date: orderDate,
         order_number: n,
-        status: "shipped",
+        status: "unreturned",
         driver_name: null,
         out_of_county: false,
         order_price: null,
         cash_sale_price: null,
         invoice_price: null,
-        unreturned_date: null,
+        unreturned_date: todayStr(),
       });
     }
     if (rows.length === 0) return 0;
