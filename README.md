@@ -28,6 +28,7 @@ npm run dev
    - [`supabase/migrations/0004_backfill_missing_status.sql`](./supabase/migrations/0004_backfill_missing_status.sql)（把現有資料裡沒有正確狀態的舊資料都補成未回單）
    - [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)（建立資料異動觸發器）
    - [`supabase/migrations/0006_orders_sync_queue.sql`](./supabase/migrations/0006_orders_sync_queue.sql)（把觸發器改成寫入同步佇列，見下面第 4 節）
+   - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天 300 個單號，見下面第 3 節）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -55,6 +56,11 @@ npm run dev
 
 畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
 不需要另外開視窗。頁面最下方有司機名單管理，新增一次司機之後，每一列都能點選。
+
+當天的 300 個單號不用等有人打開網站才建立——Supabase 有一個排程（`pg_cron`），
+每天台北時間 00:01 自動建立好，這樣 Google Sheet 那邊也有時間在大家開始上班前
+先同步完（見下面第 4 節同步佇列的說明）。網站上原本「選到還沒建立過的日期就自動
+建立 300 筆」的邏輯還在，當備援用（例如排程萬一沒跑成功）。
 
 ## 4. Google Sheet 同步（Apps Script，自動排隊處理）
 
