@@ -1,15 +1,21 @@
 /**
  * JHDN 出貨單管理 -- Supabase -> Google Sheet 同步腳本
  *
- * 用途：即時把 Supabase 的 "JHDN_orders" 資料表同步到這份 Google Sheet 當報表/備份。
+ * 用途：把 Supabase 的 "JHDN_orders" 資料表同步到這份 Google Sheet 當報表/備份。
  * 資料的來源永遠是網站 -> Supabase，這個腳本只負責「讀取後覆寫」，不會反過來把
  * Sheet 的修改寫回 Supabase。
  *
- * 這個檔案有兩種同步方式：
- *   1. 即時同步（推薦）：doPost() 接收 Supabase Database Webhook，網站每次寫入
- *      Supabase 後幾乎立刻反映到 Sheet，一筆一筆更新，不需要等時間排程。
- *   2. 手動全量同步：syncFromSupabase()，從 Sheet 選單「JHDN 同步」->「立即同步」
- *      手動整批重新拉一次，適合第一次建表後拿來對一次資料，或懷疑漏掉某幾筆時用。
+ * ===== 運作方式 =====
+ *
+ * 網站每次寫入 Supabase，資料庫觸發器只會把這筆異動快速記錄進一個佇列表
+ * (`JHDN_sync_queue`)，不會直接呼叫 Google。這個腳本設定一個「每分鐘」的時間
+ * 觸發條件執行 drainSyncQueue()，依序、一列一列（中間有間隔）把佇列清空、寫進
+ * Sheet。這樣不管一次改幾百筆（例如選一個新日期自動建立 300 個單號），也不會
+ * 因為同時湧入太多請求把 Google Apps Script 塞爆、造成資料遺漏或順序錯亂——
+ * 全程自動，不需要手動點「立即同步」。
+ *
+ * 一般情況下，新資料大約 1 分鐘內就會出現在 Sheet 上；一次異動很多筆時，
+ * 全部同步完可能要多等幾分鐘（處理速度大約每秒 3-4 筆）。
  *
  * ===== 設定步驟 =====
  *
@@ -21,19 +27,16 @@
  *                           自動建立/使用「Supabase同步(勿手動編輯)」分頁。
  *                           如果你已經有「出貨單」「Data」等手動操作的分頁，
  *                           不要把 SHEET_NAME 設成那些名字，避免被整批覆寫。
- *      WEBHOOK_TOKEN      = 自己隨便設一組不容易猜到的字串（例如一串亂碼），
- *                           用來驗證是 Supabase 呼叫的，不是別人亂打進來的。
- * 3. 執行一次 syncFromSupabase()，Google 會跳出授權視窗，同意即可（這樣
- *    doPost 之後才有權限寫入試算表）。
- * 4. 部署成 Web App，讓 Supabase 可以呼叫到：
- *      左上角「部署」-> 新增部署作業 -> 類型選「網頁應用程式」
- *      -> 執行身分：我
- *      -> 具有存取權的使用者：任何人
- *      -> 部署，複製產生的網址（結尾是 /exec）
+ * 3. 執行一次 syncFromSupabase()，Google 會跳出授權視窗，同意即可（順便把
+ *    現有資料整批同步一次）。
+ * 4. 左側「觸發條件」(時鐘圖示) -> 新增觸發條件：
+ *      選擇函式：drainSyncQueue
+ *      事件來源：時間驅動 -> 分鐘計時器 -> 每分鐘
  * 5. 到 Supabase SQL Editor 執行 supabase/migrations/0005_orders_webhook_trigger.sql
- *    （把裡面的網址、token 換成你自己的），存檔後，之後在網站上新增/修改/刪除
- *    單號，幾秒內就會反映到 Sheet。
- * 6. 之後也可以隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑一次。
+ *    跟 supabase/migrations/0006_orders_sync_queue.sql（兩個都要，順序不能反）。
+ * 6. 之後在網站上的異動都會自動進佇列，drainSyncQueue 每分鐘自動清空。也可以
+ *    隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑一次（適合第一次
+ *    建表、或想立刻整批對一次資料時用）。
  */
 
 const STATUS_LABEL = {
@@ -55,6 +58,11 @@ const HEADERS = [
   "更新時間",
 ];
 
+// 每處理一列的間隔，避免短時間內對 Sheets 送出太多寫入請求
+const DRAIN_PACE_MS = 250;
+// 單次執行的時間預算，接近這個時間就先結束，剩下的留給下一次（每分鐘）觸發
+const DRAIN_TIME_BUDGET_MS = 4 * 60 * 1000;
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("JHDN 同步")
@@ -62,61 +70,83 @@ function onOpen() {
     .addToUi();
 }
 
-/** Supabase Database Webhook (或 SQL 觸發器) 打進來的即時同步入口 */
-function doPost(e) {
+/** 由時間觸發條件每分鐘呼叫一次：把 JHDN_sync_queue 依序清空、寫進 Sheet */
+function drainSyncQueue() {
   const props = PropertiesService.getScriptProperties();
-  const expectedToken = props.getProperty("WEBHOOK_TOKEN");
-  const givenToken = e.parameter.token;
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const anonKey = props.getProperty("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !anonKey) return;
 
-  if (expectedToken && givenToken !== expectedToken) {
-    return jsonResponse({ ok: false, error: "invalid token" });
-  }
-
-  const payload = JSON.parse(e.postData.contents);
-
-  // A bulk action on the site (e.g. auto-provisioning 300 order numbers for
-  // a new date) fires many near-simultaneous webhook calls. Without a lock,
-  // concurrent executions can all read the same "last row" before any of
-  // them appends, then collide writing to it — rows silently overwrite each
-  // other and land out of order. Serialize writes so each call sees the
-  // sheet as it actually is.
   const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(25000);
-  } catch (err) {
-    return jsonResponse({ ok: false, error: "timed out waiting for sheet lock" });
+  if (!lock.tryLock(5000)) {
+    // 上一次的 drain 還在跑，這次先跳過，下一分鐘再繼續
+    return;
   }
 
   try {
+    const startedAt = Date.now();
     const sheet = getOrCreateSheet();
 
-    if (payload.type === "DELETE") {
-      const old = payload.old_record;
-      const code = old ? formatOrderCode(old.order_date, old.order_number) : null;
-      const rowIndex = code ? findRowByCode(sheet, code) : -1;
-      if (rowIndex > 0) sheet.deleteRow(rowIndex);
-    } else {
-      const order = payload.record;
-      const code = formatOrderCode(order.order_date, order.order_number);
-      const rowIndex = findRowByCode(sheet, code);
-      const values = orderToRow(order);
-      if (rowIndex > 0) {
-        sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([values]);
-      } else {
-        sheet.appendRow(values);
+    while (Date.now() - startedAt < DRAIN_TIME_BUDGET_MS) {
+      const queueItems = fetchQueueBatch(supabaseUrl, anonKey, 50);
+      if (queueItems.length === 0) break;
+
+      for (const item of queueItems) {
+        applyQueueItem(sheet, item.payload);
+        deleteQueueItem(supabaseUrl, anonKey, item.id);
+        Utilities.sleep(DRAIN_PACE_MS);
+
+        if (Date.now() - startedAt >= DRAIN_TIME_BUDGET_MS) break;
       }
     }
   } finally {
     lock.releaseLock();
   }
-
-  return jsonResponse({ ok: true });
 }
 
-function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
-    ContentService.MimeType.JSON
-  );
+function fetchQueueBatch(supabaseUrl, anonKey, limit) {
+  const url =
+    `${supabaseUrl}/rest/v1/JHDN_sync_queue?select=id,payload&order=id.asc&limit=${limit}`;
+  const response = UrlFetchApp.fetch(url, {
+    method: "get",
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    muteHttpExceptions: true,
+  });
+  if (response.getResponseCode() >= 300) {
+    throw new Error(
+      `讀取同步佇列失敗 (HTTP ${response.getResponseCode()}): ${response.getContentText()}`
+    );
+  }
+  return JSON.parse(response.getContentText());
+}
+
+function deleteQueueItem(supabaseUrl, anonKey, id) {
+  const url = `${supabaseUrl}/rest/v1/JHDN_sync_queue?id=eq.${id}`;
+  UrlFetchApp.fetch(url, {
+    method: "delete",
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    muteHttpExceptions: true,
+  });
+}
+
+function applyQueueItem(sheet, payload) {
+  if (payload.type === "DELETE") {
+    const old = payload.old_record;
+    const code = old ? formatOrderCode(old.order_date, old.order_number) : null;
+    const rowIndex = code ? findRowByCode(sheet, code) : -1;
+    if (rowIndex > 0) sheet.deleteRow(rowIndex);
+    return;
+  }
+
+  const order = payload.record;
+  const code = formatOrderCode(order.order_date, order.order_number);
+  const rowIndex = findRowByCode(sheet, code);
+  const values = orderToRow(order);
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([values]);
+  } else {
+    sheet.appendRow(values);
+  }
 }
 
 function getOrCreateSheet() {

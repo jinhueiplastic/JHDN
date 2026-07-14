@@ -21,12 +21,14 @@ npm run dev
 這個 sandbox 環境連不到外部 Supabase（網路政策擋掉了），所以資料表要你自己手動建立：
 
 1. 打開 Supabase 專案 -> SQL Editor -> New query
-2. 依序貼上並執行這四個檔案的完整內容：
+2. 依序貼上並執行這六個檔案的完整內容：
    - [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql)（訂單主表）
    - [`supabase/migrations/0002_drivers.sql`](./supabase/migrations/0002_drivers.sql)（司機名單，網站上用點選的司機清單就是存在這張表）
    - [`supabase/migrations/0003_drop_shipped_status.sql`](./supabase/migrations/0003_drop_shipped_status.sql)（把狀態簡化成只剩未回單/已回單兩種）
    - [`supabase/migrations/0004_backfill_missing_status.sql`](./supabase/migrations/0004_backfill_missing_status.sql)（把現有資料裡沒有正確狀態的舊資料都補成未回單）
-3. 每個都 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
+   - [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)（建立資料異動觸發器）
+   - [`supabase/migrations/0006_orders_sync_queue.sql`](./supabase/migrations/0006_orders_sync_queue.sql)（把觸發器改成寫入同步佇列，見下面第 4 節）
+3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
 
@@ -54,13 +56,20 @@ npm run dev
 畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
 不需要另外開視窗。頁面最下方有司機名單管理，新增一次司機之後，每一列都能點選。
 
-## 4. Google Sheet 同步（Apps Script，即時）
+## 4. Google Sheet 同步（Apps Script，自動排隊處理）
 
 程式在 [`google-apps-script/sync-orders.gs`](./google-apps-script/sync-orders.gs)。
-網站每次寫入 Supabase 後，Supabase 會透過 Database Webhook 立刻通知這個 Apps
-Script，單筆單筆即時反映到 Google Sheet 專用的分頁（預設分頁名稱
-`Supabase同步(勿手動編輯)`，不要在這個分頁手動輸入資料）。你自己的「出貨單」
-「Data」分頁不受影響。
+網站每次寫入 Supabase，資料庫觸發器會把這筆異動記錄進一個佇列表
+（`JHDN_sync_queue`），這一步很快，不會卡住網站。接著 Apps Script 設定一個
+「每分鐘」自動執行的時間觸發條件，依序、一列一列把佇列清空、寫進 Google Sheet
+專用的分頁（預設分頁名稱 `Supabase同步(勿手動編輯)`，不要在這個分頁手動輸入
+資料）。你自己的「出貨單」「Data」分頁不受影響。
+
+這樣設計是因為：如果每次異動都「立刻」直接呼叫 Google（例如選一個新日期一次
+建立 300 個單號），會瞬間送出幾百個請求，Google Apps Script 處理不了這麼多
+「同時」的請求，資料會遺漏、順序也會錯亂。改成排隊 + 每分鐘自動清空，不管一次
+異動幾筆都不會出錯，也完全不需要手動點任何按鈕——一般情況下新資料大約 1 分鐘
+內就會出現在 Sheet 上，一次異動很多筆的話，全部同步完可能要多等個幾分鐘。
 
 寫入的欄位順序：
 
@@ -81,30 +90,27 @@ Script，單筆單筆即時反映到 Google Sheet 專用的分頁（預設分頁
 設定步驟：
 
 1. Google Sheet -> 擴充功能 -> Apps Script，把 `sync-orders.gs` 整份貼進去
+   （如果之前貼過舊版，直接整份覆蓋掉）
 2. 左側「專案設定」(齒輪) -> 指令碼屬性，新增：
    - `SUPABASE_URL` = `https://duypvottqpjsmvlclyit.supabase.co`
    - `SUPABASE_ANON_KEY` = 你的 anon public key
    - `SHEET_NAME`（選填，不填就用預設分頁名稱）
-   - `WEBHOOK_TOKEN` = 自己隨便設一組不容易猜到的字串，防止別人亂打這個網址
 3. 執行一次 `syncFromSupabase`，同意授權視窗（順便把現有資料整批同步一次）
-4. 左上角「部署」-> 新增部署作業 -> 類型「網頁應用程式」-> 執行身分「我」->
-   具有存取權的使用者「任何人」-> 部署，複製產生的網址（結尾 `/exec`）
-5. 把第 4 步的網址和你設的 `WEBHOOK_TOKEN` 貼給我，我會把
-   [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)
-   裡的網址換成你的，你只要貼到 Supabase SQL Editor 執行一次即可——這個
-   migration 用資料庫觸發器（`pg_net` 擴充功能）直接呼叫你的 Apps Script，
-   不需要在 Supabase 介面裡另外找「Webhooks」設定頁面。
-6. 執行完 migration 後，之後在網站上新增/修改/刪除單號，幾秒內就會反映到
-   Sheet。之後也能隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑
-   一次（適合第一次建表、或懷疑漏同步時用）。
+4. 左側「觸發條件」(時鐘圖示) -> 新增觸發條件：
+   - 選擇要執行的函式：`drainSyncQueue`
+   - 選取事件來源：時間驅動
+   - 選取時間類型：分鐘計時器 -> 每分鐘
+   - 儲存
+5. 確認 Supabase 已經執行過 `0005_orders_webhook_trigger.sql` 跟
+   `0006_orders_sync_queue.sql`（見上面第 2 節）
+6. 之後在網站上新增/修改/刪除單號，會自動進佇列，`drainSyncQueue` 每分鐘
+   自動清空、寫進 Sheet，完全不需要手動操作。也可以隨時從 Sheet 選單
+   「JHDN 同步」->「立即同步」手動整批重跑一次（適合第一次建表、或想立刻
+   整批對一次資料時用）。
 
-> 如果之後重新部署 Apps Script 拿到新的網址、或換了 `WEBHOOK_TOKEN`，
-> 要重新產生一份 migration（把新網址貼給我），再到 SQL Editor 執行一次。
-
-> **大量異動時的限制**：Google Apps Script 沒辦法同時處理幾百個「即時」請求
-> （例如選一個新日期自動建立 300 個單號、或批量修改/刪除很多筆）。單筆單筆
-> 操作即時同步沒問題，但一次異動超過幾十筆時，建議操作完之後手動跑一次
-> Sheet 選單「JHDN 同步」->「立即同步」，確保資料完整、順序正確。
+這個做法不需要把 Apps Script 部署成網頁應用程式，也不需要在 Supabase 設定
+Webhook 或 token——Google 這邊主動去讀佇列，Supabase 完全不用知道 Apps
+Script 的網址。
 
 之後如果要多加欄位，跟我說一聲，我會同時更新 Supabase 資料表、網站表單、跟這個
 Apps Script 的欄位對照表。
