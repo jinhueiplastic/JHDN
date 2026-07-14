@@ -12,8 +12,10 @@ import {
 } from "@/types/order";
 import StatusBadge from "@/components/StatusBadge";
 import OrderFormModal from "@/components/OrderFormModal";
+import BatchCreateModal from "@/components/BatchCreateModal";
 
 const TOTAL_ORDER_NUMBERS = 300;
+const TABLE = "JHDN_orders";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -27,7 +29,8 @@ export default function OrdersDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>("all");
-  const [modalOrder, setModalOrder] = useState<Order | null | "new">(null);
+  const [modalOrder, setModalOrder] = useState<Order | null>(null);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
 
   useEffect(() => {
     void loadOrders();
@@ -38,7 +41,7 @@ export default function OrdersDashboard() {
     setLoading(true);
     setError(null);
     const { data, error } = await supabase
-      .from("JHDN_orders")
+      .from(TABLE)
       .select("*")
       .eq("order_date", orderDate)
       .order("order_number", { ascending: true });
@@ -76,18 +79,61 @@ export default function OrdersDashboard() {
     return result;
   }, [orders]);
 
+  const modalIndex = modalOrder
+    ? visibleOrders.findIndex((o) => o.id === modalOrder.id)
+    : -1;
+  const hasNext = modalIndex >= 0 && modalIndex < visibleOrders.length - 1;
+
+  async function handleBatchCreate(start: number, end: number): Promise<number> {
+    const used = new Set(orders.map((o) => o.order_number));
+    const rows: OrderInput[] = [];
+    for (let n = start; n <= end; n++) {
+      if (n < 1 || n > TOTAL_ORDER_NUMBERS || used.has(n)) continue;
+      rows.push({
+        order_date: orderDate,
+        order_number: n,
+        status: "shipped",
+        driver_name: null,
+        out_of_county: false,
+        order_price: null,
+        cash_sale_price: null,
+        invoice_price: null,
+        unreturned_date: null,
+      });
+    }
+    if (rows.length === 0) return 0;
+
+    const { error } = await supabase.from(TABLE).insert(rows);
+    if (error) throw new Error(error.message);
+    await loadOrders();
+    return rows.length;
+  }
+
   async function handleSave(orderNumber: number, input: OrderInput) {
     const { error } = await supabase
-      .from("JHDN_orders")
+      .from(TABLE)
       .upsert(input, { onConflict: "order_date,order_number" });
     if (error) throw new Error(error.message);
     setModalOrder(null);
     await loadOrders();
   }
 
+  async function handleSaveAndNext(orderNumber: number, input: OrderInput) {
+    const idx = visibleOrders.findIndex((o) => o.order_number === orderNumber);
+    const next = idx >= 0 ? visibleOrders[idx + 1] ?? null : null;
+
+    const { error } = await supabase
+      .from(TABLE)
+      .upsert(input, { onConflict: "order_date,order_number" });
+    if (error) throw new Error(error.message);
+
+    await loadOrders();
+    setModalOrder(next);
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("確定要刪除這筆資料嗎？")) return;
-    const { error } = await supabase.from("JHDN_orders").delete().eq("id", id);
+    const { error } = await supabase.from(TABLE).delete().eq("id", id);
     if (error) {
       alert(error.message);
       return;
@@ -108,11 +154,11 @@ export default function OrdersDashboard() {
             className="input w-auto"
           />
           <button
-            onClick={() => setModalOrder("new")}
+            onClick={() => setBatchModalOpen(true)}
             disabled={availableOrderNumbers.length === 0}
             className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            + 新增單號
+            + 批次新增單號
           </button>
         </div>
       </div>
@@ -183,16 +229,25 @@ export default function OrdersDashboard() {
         </table>
       </div>
 
-      {modalOrder !== null && (
+      {batchModalOpen && (
+        <BatchCreateModal
+          orderDate={orderDate}
+          minAvailable={availableOrderNumbers[0] ?? 1}
+          maxAvailable={TOTAL_ORDER_NUMBERS}
+          onClose={() => setBatchModalOpen(false)}
+          onCreate={handleBatchCreate}
+        />
+      )}
+
+      {modalOrder && (
         <OrderFormModal
           orderDate={orderDate}
-          availableOrderNumbers={availableOrderNumbers}
-          existing={modalOrder === "new" ? null : modalOrder}
+          existing={modalOrder}
+          hasNext={hasNext}
           onClose={() => setModalOrder(null)}
           onSave={handleSave}
-          onDelete={
-            modalOrder !== "new" ? () => handleDelete((modalOrder as Order).id) : undefined
-          }
+          onSaveAndNext={handleSaveAndNext}
+          onDelete={() => handleDelete(modalOrder.id)}
         />
       )}
     </div>

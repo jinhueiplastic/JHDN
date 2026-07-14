@@ -42,3 +42,15 @@ export type OrderInput = Pick<
 export function formatOrderNumber(n: number): string {
   return String(n).padStart(4, "0");
 }
+
+/** 民國年 MMDD，例如 2026-07-14 -> "1150714" */
+export function formatMinguoDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const minguoYear = y - 1911;
+  return `${minguoYear}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
+}
+
+/** 完整單號代碼，例如 "1150714-0001" */
+export function formatOrderCode(dateStr: string, orderNumber: number): string {
+  return `${formatMinguoDate(dateStr)}-${formatOrderNumber(orderNumber)}`;
+}
