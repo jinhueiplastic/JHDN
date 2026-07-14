@@ -118,9 +118,10 @@ function getOrCreateSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
   }
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-  }
+  // Always re-stamp the header row so it can never drift out of sync with
+  // HEADERS (e.g. after adding/reordering a column in this script) — this
+  // only touches row 1, never the data rows below it.
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
   return sheet;
 }
 

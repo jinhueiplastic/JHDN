@@ -23,6 +23,8 @@ function currentPriceType(order: Order): PriceField | "" {
 interface Props {
   order: Order;
   drivers: Driver[];
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onUpdate: (order: Order, patch: Partial<OrderInput>) => Promise<void>;
   onDelete: (order: Order) => void;
 }
@@ -30,7 +32,14 @@ interface Props {
 // Local text-input state only ever changes via this row's own typing/commit
 // (each field commits independently to the row's own `order`), so it never
 // needs to resync from the `order` prop after the initial mount.
-export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) {
+export default function OrderRow({
+  order,
+  drivers,
+  selected,
+  onToggleSelect,
+  onUpdate,
+  onDelete,
+}: Props) {
   const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
   const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
 
@@ -70,6 +79,15 @@ export default function OrderRow({ order, drivers, onUpdate, onDelete }: Props) 
 
   return (
     <tr className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+      <td className="px-3 py-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(order.id)}
+          className="h-4 w-4 rounded border-neutral-300"
+        />
+      </td>
+
       <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
         {formatOrderCode(order.order_date, order.order_number)}
       </td>

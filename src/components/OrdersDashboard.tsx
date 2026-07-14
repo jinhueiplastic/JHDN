@@ -26,6 +26,7 @@ export default function OrdersDashboard() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void loadOrders();
@@ -203,6 +204,49 @@ export default function OrdersDashboard() {
     setOrders((prev) => prev.filter((o) => o.id !== order.id));
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    setSelectedIds((prev) => {
+      const allSelected = visibleOrders.every((o) => prev.has(o.id));
+      if (allSelected) return new Set();
+      return new Set(visibleOrders.map((o) => o.id));
+    });
+  }
+
+  async function handleBulkUpdate(patch: Partial<OrderInput>) {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const { data, error } = await supabase.from(TABLE).update(patch).in("id", ids).select();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    const updatedById = new Map((data as Order[]).map((o) => [o.id, o]));
+    setOrders((prev) => prev.map((o) => updatedById.get(o.id) ?? o));
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkDelete() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`確定要刪除選取的 ${ids.length} 筆嗎？`)) return;
+    const { error } = await supabase.from(TABLE).delete().in("id", ids);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setOrders((prev) => prev.filter((o) => !selectedIds.has(o.id)));
+    setSelectedIds(new Set());
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -211,7 +255,10 @@ export default function OrdersDashboard() {
           <input
             type="date"
             value={orderDate}
-            onChange={(e) => setOrderDate(e.target.value)}
+            onChange={(e) => {
+              setOrderDate(e.target.value);
+              setSelectedIds(new Set());
+            }}
             className="input w-auto"
           />
           <button
@@ -239,10 +286,86 @@ export default function OrdersDashboard() {
         <p className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
       )}
 
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-neutral-300 bg-neutral-50 p-3">
+          <span className="text-sm font-medium text-neutral-700">
+            已選取 {selectedIds.size} 筆
+          </span>
+
+          <div className="flex flex-wrap gap-1">
+            {drivers.map((d) => (
+              <button
+                type="button"
+                key={d.id}
+                onClick={() => void handleBulkUpdate({ driver_name: d.name })}
+                className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleBulkUpdate({ status: "unreturned" })}
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+          >
+            設為未回單
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkUpdate({ status: "returned", unreturned_date: null })}
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+          >
+            設為已回單
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkUpdate({ out_of_county: true })}
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+          >
+            設為外縣市
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkUpdate({ out_of_county: false })}
+            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+          >
+            設為非外縣市
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+          >
+            刪除選取
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-sm text-neutral-400 hover:underline"
+          >
+            取消選取
+          </button>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500">
             <tr>
+              <th className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={
+                    visibleOrders.length > 0 &&
+                    visibleOrders.every((o) => selectedIds.has(o.id))
+                  }
+                  onChange={toggleSelectAllVisible}
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </th>
               <th className="px-3 py-2">單號</th>
               <th className="px-2 py-2">狀態</th>
               <th className="px-2 py-2">司機</th>
@@ -255,13 +378,13 @@ export default function OrdersDashboard() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
                   載入中…
                 </td>
               </tr>
             ) : visibleOrders.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
                   這一天還沒有資料
                 </td>
               </tr>
@@ -271,6 +394,8 @@ export default function OrdersDashboard() {
                   key={o.id}
                   order={o}
                   drivers={drivers}
+                  selected={selectedIds.has(o.id)}
+                  onToggleSelect={toggleSelect}
                   onUpdate={handleUpdate}
                   onDelete={handleDelete}
                 />
