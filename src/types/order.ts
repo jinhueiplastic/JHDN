@@ -50,7 +50,7 @@ export function formatMinguoDate(dateStr: string): string {
   return `${minguoYear}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
 }
 
-/** 完整單號代碼，例如 "1150714-0001" */
+/** 完整單號代碼，例如 "11507140001" */
 export function formatOrderCode(dateStr: string, orderNumber: number): string {
-  return `${formatMinguoDate(dateStr)}-${formatOrderNumber(orderNumber)}`;
+  return `${formatMinguoDate(dateStr)}${formatOrderNumber(orderNumber)}`;
 }

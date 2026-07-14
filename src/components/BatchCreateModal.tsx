@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatMinguoDate, formatOrderNumber } from "@/types/order";
+import { formatMinguoDate, formatOrderCode } from "@/types/order";
 
 interface Props {
   orderDate: string;
@@ -93,8 +93,7 @@ export default function BatchCreateModal({
           </div>
 
           <p className="text-xs text-neutral-400">
-            將建立 {formatMinguoDate(orderDate)}-{formatOrderNumber(start)} ~{" "}
-            {formatMinguoDate(orderDate)}-{formatOrderNumber(end)}
+            將建立 {formatOrderCode(orderDate, start)} ~ {formatOrderCode(orderDate, end)}
             之間尚未建立的單號（已存在的不會被覆蓋），狀態預設為「出貨單」，之後可以逐筆點進去編輯。
           </p>
 
