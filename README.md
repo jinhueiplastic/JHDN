@@ -89,14 +89,17 @@ Script，單筆單筆即時反映到 Google Sheet 專用的分頁（預設分頁
 3. 執行一次 `syncFromSupabase`，同意授權視窗（順便把現有資料整批同步一次）
 4. 左上角「部署」-> 新增部署作業 -> 類型「網頁應用程式」-> 執行身分「我」->
    具有存取權的使用者「任何人」-> 部署，複製產生的網址（結尾 `/exec`）
-5. Supabase 專案 -> **Database -> Webhooks -> Create a new hook**：
-   - Table：`JHDN_orders`
-   - Events：勾選 Insert、Update、Delete
-   - Type：HTTP Request，Method：POST
-   - URL：第 4 步的網址，後面加 `?token=你在 WEBHOOK_TOKEN 設的字串`
-6. 存檔後，之後在網站上新增/修改/刪除單號，幾秒內就會反映到 Sheet。之後也能
-   隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑一次（適合第一次
-   建表、或懷疑漏同步時用）。
+5. 把第 4 步的網址和你設的 `WEBHOOK_TOKEN` 貼給我，我會把
+   [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)
+   裡的網址換成你的，你只要貼到 Supabase SQL Editor 執行一次即可——這個
+   migration 用資料庫觸發器（`pg_net` 擴充功能）直接呼叫你的 Apps Script，
+   不需要在 Supabase 介面裡另外找「Webhooks」設定頁面。
+6. 執行完 migration 後，之後在網站上新增/修改/刪除單號，幾秒內就會反映到
+   Sheet。之後也能隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑
+   一次（適合第一次建表、或懷疑漏同步時用）。
+
+> 如果之後重新部署 Apps Script 拿到新的網址、或換了 `WEBHOOK_TOKEN`，
+> 要重新產生一份 migration（把新網址貼給我），再到 SQL Editor 執行一次。
 
 之後如果要多加欄位，跟我說一聲，我會同時更新 Supabase 資料表、網站表單、跟這個
 Apps Script 的欄位對照表。
