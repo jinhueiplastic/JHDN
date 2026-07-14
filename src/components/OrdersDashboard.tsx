@@ -2,18 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import {
-  formatOrderNumber,
-  Order,
-  ORDER_STATUS_LABEL,
-  ORDER_STATUSES,
-  OrderInput,
-  OrderStatus,
-} from "@/types/order";
-import StatusBadge from "@/components/StatusBadge";
-import OrderFormModal from "@/components/OrderFormModal";
-import BatchCreateModal from "@/components/BatchCreateModal";
+import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
+import OrderRow from "@/components/OrderRow";
+import BatchCreateModal from "@/components/BatchCreateModal";
+import DriverManager from "@/components/DriverManager";
 
 const TOTAL_ORDER_NUMBERS = 300;
 const TABLE = "JHDN_orders";
@@ -31,7 +24,6 @@ export default function OrdersDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>("all");
-  const [modalOrder, setModalOrder] = useState<Order | null>(null);
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
 
@@ -57,6 +49,16 @@ export default function OrdersDashboard() {
       .from(DRIVERS_TABLE)
       .upsert({ name }, { onConflict: "name", ignoreDuplicates: true });
     if (error) throw new Error(error.message);
+    await loadDrivers();
+  }
+
+  async function handleDeleteDriver(driver: Driver) {
+    if (!confirm(`確定要刪除司機「${driver.name}」嗎？`)) return;
+    const { error } = await supabase.from(DRIVERS_TABLE).delete().eq("id", driver.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     await loadDrivers();
   }
 
@@ -102,11 +104,6 @@ export default function OrdersDashboard() {
     return result;
   }, [orders]);
 
-  const modalIndex = modalOrder
-    ? visibleOrders.findIndex((o) => o.id === modalOrder.id)
-    : -1;
-  const hasNext = modalIndex >= 0 && modalIndex < visibleOrders.length - 1;
-
   async function handleBatchCreate(start: number, end: number): Promise<number> {
     const used = new Set(orders.map((o) => o.order_number));
     const rows: OrderInput[] = [];
@@ -132,41 +129,53 @@ export default function OrdersDashboard() {
     return rows.length;
   }
 
-  async function handleSave(orderNumber: number, input: OrderInput) {
-    const { error } = await supabase
+  async function handleUpdate(order: Order, patch: Partial<OrderInput>) {
+    const merged: OrderInput = {
+      order_date: order.order_date,
+      order_number: order.order_number,
+      status: order.status,
+      driver_name: order.driver_name,
+      out_of_county: order.out_of_county,
+      order_price: order.order_price,
+      cash_sale_price: order.cash_sale_price,
+      invoice_price: order.invoice_price,
+      unreturned_date: order.unreturned_date,
+      ...patch,
+    };
+
+    if (merged.status === "unreturned" && !merged.unreturned_date) {
+      merged.unreturned_date = todayStr();
+    }
+    if (merged.status !== "unreturned") {
+      merged.unreturned_date = null;
+    }
+
+    const { data, error } = await supabase
       .from(TABLE)
-      .upsert(input, { onConflict: "order_date,order_number" });
-    if (error) throw new Error(error.message);
-    setModalOrder(null);
-    await loadOrders();
-  }
+      .update(merged)
+      .eq("id", order.id)
+      .select()
+      .single();
 
-  async function handleSaveAndNext(orderNumber: number, input: OrderInput) {
-    const idx = visibleOrders.findIndex((o) => o.order_number === orderNumber);
-    const next = idx >= 0 ? visibleOrders[idx + 1] ?? null : null;
-
-    const { error } = await supabase
-      .from(TABLE)
-      .upsert(input, { onConflict: "order_date,order_number" });
-    if (error) throw new Error(error.message);
-
-    await loadOrders();
-    setModalOrder(next);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("確定要刪除這筆資料嗎？")) return;
-    const { error } = await supabase.from(TABLE).delete().eq("id", id);
     if (error) {
       alert(error.message);
       return;
     }
-    setModalOrder(null);
-    await loadOrders();
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? (data as Order) : o)));
+  }
+
+  async function handleDelete(order: Order) {
+    if (!confirm(`確定要刪除單號 ${order.order_number} 嗎？`)) return;
+    const { error } = await supabase.from(TABLE).delete().eq("id", order.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== order.id));
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">出貨單管理</h1>
         <div className="flex items-center gap-3">
@@ -205,52 +214,46 @@ export default function OrdersDashboard() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500">
             <tr>
-              <th className="px-4 py-2">單號</th>
-              <th className="px-4 py-2">狀態</th>
-              <th className="px-4 py-2">司機</th>
-              <th className="px-4 py-2">外縣市</th>
-              <th className="px-4 py-2">填單價</th>
-              <th className="px-4 py-2">現銷價</th>
-              <th className="px-4 py-2">發票金額</th>
-              <th className="px-4 py-2">未回單日期</th>
+              <th className="px-3 py-2">單號</th>
+              <th className="px-2 py-2">狀態</th>
+              <th className="px-2 py-2">司機</th>
+              <th className="px-2 py-2">外縣市</th>
+              <th className="px-2 py-2">填單價</th>
+              <th className="px-2 py-2">現銷價</th>
+              <th className="px-2 py-2">發票金額</th>
+              <th className="px-3 py-2">未回單日期</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
                   載入中…
                 </td>
               </tr>
             ) : visibleOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
                   這一天還沒有資料
                 </td>
               </tr>
             ) : (
               visibleOrders.map((o) => (
-                <tr
+                <OrderRow
                   key={o.id}
-                  onClick={() => setModalOrder(o)}
-                  className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
-                >
-                  <td className="px-4 py-2 font-mono">{formatOrderNumber(o.order_number)}</td>
-                  <td className="px-4 py-2">
-                    <StatusBadge status={o.status} />
-                  </td>
-                  <td className="px-4 py-2">{o.driver_name || "-"}</td>
-                  <td className="px-4 py-2">{o.out_of_county ? "是" : "否"}</td>
-                  <td className="px-4 py-2">{o.order_price ?? "-"}</td>
-                  <td className="px-4 py-2">{o.cash_sale_price ?? "-"}</td>
-                  <td className="px-4 py-2">{o.invoice_price ?? "-"}</td>
-                  <td className="px-4 py-2">{o.unreturned_date ?? "-"}</td>
-                </tr>
+                  order={o}
+                  drivers={drivers}
+                  onUpdate={handleUpdate}
+                  onDelete={handleDelete}
+                />
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <DriverManager drivers={drivers} onAdd={handleAddDriver} onDelete={handleDeleteDriver} />
 
       {batchModalOpen && (
         <BatchCreateModal
@@ -259,21 +262,6 @@ export default function OrdersDashboard() {
           maxAvailable={TOTAL_ORDER_NUMBERS}
           onClose={() => setBatchModalOpen(false)}
           onCreate={handleBatchCreate}
-        />
-      )}
-
-      {modalOrder && (
-        <OrderFormModal
-          key={modalOrder.id}
-          orderDate={orderDate}
-          existing={modalOrder}
-          hasNext={hasNext}
-          drivers={drivers}
-          onAddDriver={handleAddDriver}
-          onClose={() => setModalOrder(null)}
-          onSave={handleSave}
-          onSaveAndNext={handleSaveAndNext}
-          onDelete={() => handleDelete(modalOrder.id)}
         />
       )}
     </div>
