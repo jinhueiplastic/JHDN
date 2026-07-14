@@ -62,6 +62,20 @@ export default function OrdersDashboard() {
     await loadDrivers();
   }
 
+  function defaultRow(n: number): OrderInput {
+    return {
+      order_date: orderDate,
+      order_number: n,
+      status: "unreturned",
+      driver_name: null,
+      out_of_county: false,
+      order_price: null,
+      cash_sale_price: null,
+      invoice_price: null,
+      unreturned_date: orderDate,
+    };
+  }
+
   async function loadOrders() {
     setLoading(true);
     setError(null);
@@ -73,9 +87,35 @@ export default function OrdersDashboard() {
 
     if (error) {
       setError(error.message);
-    } else {
-      setOrders(data as Order[]);
+      setLoading(false);
+      return;
     }
+
+    // A date nobody has touched yet: provision all 300 slots up front as
+    // 未回單 so the whole board is ready without a separate "batch create"
+    // click. Once a date has any rows, leave it alone so deletions stick.
+    if (data.length === 0) {
+      const rows: OrderInput[] = [];
+      for (let n = 1; n <= TOTAL_ORDER_NUMBERS; n++) rows.push(defaultRow(n));
+
+      const { data: inserted, error: insertError } = await supabase
+        .from(TABLE)
+        .insert(rows)
+        .select();
+
+      if (insertError) {
+        setError(insertError.message);
+        setLoading(false);
+        return;
+      }
+      setOrders(
+        (inserted as Order[]).sort((a, b) => a.order_number - b.order_number)
+      );
+      setLoading(false);
+      return;
+    }
+
+    setOrders(data as Order[]);
     setLoading(false);
   }
 
@@ -108,17 +148,7 @@ export default function OrdersDashboard() {
     const rows: OrderInput[] = [];
     for (let n = start; n <= end; n++) {
       if (n < 1 || n > TOTAL_ORDER_NUMBERS || used.has(n)) continue;
-      rows.push({
-        order_date: orderDate,
-        order_number: n,
-        status: "unreturned",
-        driver_name: null,
-        out_of_county: false,
-        order_price: null,
-        cash_sale_price: null,
-        invoice_price: null,
-        unreturned_date: todayStr(),
-      });
+      rows.push(defaultRow(n));
     }
     if (rows.length === 0) return 0;
 
