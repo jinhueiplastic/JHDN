@@ -42,18 +42,24 @@ export default function OrderRow({
 }: Props) {
   const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
   const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
+  const [editingDriver, setEditingDriver] = useState(false);
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
 
-  function handleDriverSelect(name: string) {
+  async function handleDriverSelect(name: string) {
     if (isUnreturned) {
       // Picking a driver on a 未回單 row is how staff confirms the slip
       // came back, so it doubles as the unreturned -> 已回單 transition.
-      void onUpdate(order, { driver_name: name, status: "returned" });
-    } else {
-      void onUpdate(order, { driver_name: name });
+      await onUpdate(order, { driver_name: name, status: "returned" });
+      return;
     }
+
+    // Already 已回單: only reachable once "編輯" was clicked, and still
+    // needs an explicit confirm since this corrects a settled record.
+    if (!confirm(`確定要把司機改成「${name}」嗎？`)) return;
+    await onUpdate(order, { driver_name: name });
+    setEditingDriver(false);
   }
 
   function handlePriceTypeChange(next: string) {
@@ -108,24 +114,44 @@ export default function OrderRow({
       </td>
 
       <td className="px-2 py-2">
-        <div className="flex max-w-[280px] flex-wrap gap-2">
-          {drivers.map((d) => (
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex max-w-[280px] flex-wrap gap-2">
+            {drivers.map((d) => (
+              <button
+                type="button"
+                key={d.id}
+                disabled={isReturned && !editingDriver}
+                onClick={() => void handleDriverSelect(d.name)}
+                className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                  order.driver_name === d.name
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                {d.name}
+              </button>
+            ))}
+            {drivers.length === 0 && (
+              <span className="text-xs text-neutral-400">請先到下面新增司機</span>
+            )}
+          </div>
+          {isReturned && !editingDriver && (
             <button
               type="button"
-              key={d.id}
-              disabled={isReturned}
-              onClick={() => handleDriverSelect(d.name)}
-              className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-                order.driver_name === d.name
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
-              }`}
+              onClick={() => setEditingDriver(true)}
+              className="text-xs text-neutral-400 hover:underline"
             >
-              {d.name}
+              編輯
             </button>
-          ))}
-          {drivers.length === 0 && (
-            <span className="text-xs text-neutral-400">請先到下面新增司機</span>
+          )}
+          {isReturned && editingDriver && (
+            <button
+              type="button"
+              onClick={() => setEditingDriver(false)}
+              className="text-xs text-neutral-400 hover:underline"
+            >
+              取消編輯
+            </button>
           )}
         </div>
       </td>

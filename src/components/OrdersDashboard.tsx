@@ -23,7 +23,7 @@ export default function OrdersDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterTab>("all");
+  const [filter, setFilter] = useState<FilterTab>("unreturned");
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -274,14 +274,14 @@ export default function OrdersDashboard() {
       </div>
 
       <div className="mb-4 flex gap-2">
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-          全部 ({counts.all})
-        </FilterButton>
         {ORDER_STATUSES.map((s) => (
           <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
             {ORDER_STATUS_LABEL[s]} ({counts[s]})
           </FilterButton>
         ))}
+        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+          全部 ({counts.all})
+        </FilterButton>
       </div>
 
       {error && (
