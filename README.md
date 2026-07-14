@@ -52,28 +52,30 @@ npm run dev
 畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
 不需要另外開視窗。頁面最下方有司機名單管理，新增一次司機之後，每一列都能點選。
 
-## 4. Google Sheet 同步（Apps Script）
+## 4. Google Sheet 同步（Apps Script，即時）
 
 程式在 [`google-apps-script/sync-orders.gs`](./google-apps-script/sync-orders.gs)。
-它會呼叫 Supabase REST API 把 `JHDN_orders` 整批讀出來，寫進 Google Sheet 專用的
-分頁（預設分頁名稱 `Supabase同步(勿手動編輯)`，每次執行整批覆寫，不要在這個分頁
-手動輸入資料）。你自己的「出貨單」「Data」分頁不受影響。
+網站每次寫入 Supabase 後，Supabase 會透過 Database Webhook 立刻通知這個 Apps
+Script，單筆單筆即時反映到 Google Sheet 專用的分頁（預設分頁名稱
+`Supabase同步(勿手動編輯)`，不要在這個分頁手動輸入資料）。你自己的「出貨單」
+「Data」分頁不受影響。
 
 寫入的欄位順序：
 
 | 欄 | 欄位名稱 | 對應資料 |
 |---|---|---|
-| A | 日期 | order_date |
-| B | 單號 | order_number（補零成 0001-0300） |
-| C | 狀態 | 未回單 / 已回單 |
-| D | 司機姓名 | driver_name |
-| E | 外縣市 | 是 / 否 |
-| F | 填單價 | order_price |
-| G | 當日現銷價錢 | cash_sale_price |
-| H | 發票金額 | invoice_price |
-| I | 未回單日期 | unreturned_date |
-| J | 建立時間 | created_at |
-| K | 更新時間 | updated_at |
+| A | ID | Supabase 的 id（用來比對是哪一列，不要刪掉這欄） |
+| B | 日期 | order_date |
+| C | 單號 | order_number（補零成 0001-0300） |
+| D | 狀態 | 未回單 / 已回單 |
+| E | 司機姓名 | driver_name |
+| F | 外縣市 | 是 / 否 |
+| G | 填單價 | order_price |
+| H | 當日現銷價錢 | cash_sale_price |
+| I | 發票金額 | invoice_price |
+| J | 未回單日期 | unreturned_date |
+| K | 建立時間 | created_at |
+| L | 更新時間 | updated_at |
 
 設定步驟：
 
@@ -82,10 +84,18 @@ npm run dev
    - `SUPABASE_URL` = `https://duypvottqpjsmvlclyit.supabase.co`
    - `SUPABASE_ANON_KEY` = 你的 anon public key
    - `SHEET_NAME`（選填，不填就用預設分頁名稱）
-3. 執行一次 `syncFromSupabase`，同意授權視窗
-4. 左側「觸發條件」(時鐘) -> 新增觸發條件 -> 選 `syncFromSupabase` -> 時間驅動 ->
-   選你要的頻率（例如每 15 分鐘、每小時）
-5. 之後也能從 Sheet 選單「JHDN 同步」->「立即同步」手動跑一次
+   - `WEBHOOK_TOKEN` = 自己隨便設一組不容易猜到的字串，防止別人亂打這個網址
+3. 執行一次 `syncFromSupabase`，同意授權視窗（順便把現有資料整批同步一次）
+4. 左上角「部署」-> 新增部署作業 -> 類型「網頁應用程式」-> 執行身分「我」->
+   具有存取權的使用者「任何人」-> 部署，複製產生的網址（結尾 `/exec`）
+5. Supabase 專案 -> **Database -> Webhooks -> Create a new hook**：
+   - Table：`JHDN_orders`
+   - Events：勾選 Insert、Update、Delete
+   - Type：HTTP Request，Method：POST
+   - URL：第 4 步的網址，後面加 `?token=你在 WEBHOOK_TOKEN 設的字串`
+6. 存檔後，之後在網站上新增/修改/刪除單號，幾秒內就會反映到 Sheet。之後也能
+   隨時從 Sheet 選單「JHDN 同步」->「立即同步」手動整批重跑一次（適合第一次
+   建表、或懷疑漏同步時用）。
 
 之後如果要多加欄位，跟我說一聲，我會同時更新 Supabase 資料表、網站表單、跟這個
 Apps Script 的欄位對照表。
