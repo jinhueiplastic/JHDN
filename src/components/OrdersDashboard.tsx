@@ -264,6 +264,7 @@ export default function OrdersDashboard() {
 
       {modalOrder && (
         <OrderFormModal
+          key={modalOrder.id}
           orderDate={orderDate}
           existing={modalOrder}
           hasNext={hasNext}
