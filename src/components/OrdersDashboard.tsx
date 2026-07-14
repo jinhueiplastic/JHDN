@@ -13,9 +13,11 @@ import {
 import StatusBadge from "@/components/StatusBadge";
 import OrderFormModal from "@/components/OrderFormModal";
 import BatchCreateModal from "@/components/BatchCreateModal";
+import { Driver } from "@/types/driver";
 
 const TOTAL_ORDER_NUMBERS = 300;
 const TABLE = "JHDN_orders";
+const DRIVERS_TABLE = "JHDN_drivers";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -31,11 +33,32 @@ export default function OrdersDashboard() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [modalOrder, setModalOrder] = useState<Order | null>(null);
   const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
 
   useEffect(() => {
     void loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderDate]);
+
+  useEffect(() => {
+    void loadDrivers();
+  }, []);
+
+  async function loadDrivers() {
+    const { data, error } = await supabase
+      .from(DRIVERS_TABLE)
+      .select("*")
+      .order("name", { ascending: true });
+    if (!error) setDrivers(data as Driver[]);
+  }
+
+  async function handleAddDriver(name: string) {
+    const { error } = await supabase
+      .from(DRIVERS_TABLE)
+      .upsert({ name }, { onConflict: "name", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    await loadDrivers();
+  }
 
   async function loadOrders() {
     setLoading(true);
@@ -244,6 +267,8 @@ export default function OrdersDashboard() {
           orderDate={orderDate}
           existing={modalOrder}
           hasNext={hasNext}
+          drivers={drivers}
+          onAddDriver={handleAddDriver}
           onClose={() => setModalOrder(null)}
           onSave={handleSave}
           onSaveAndNext={handleSaveAndNext}

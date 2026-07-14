@@ -9,6 +9,8 @@ import {
   OrderInput,
   OrderStatus,
 } from "@/types/order";
+import { Driver } from "@/types/driver";
+import DriverPicker from "@/components/DriverPicker";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -18,6 +20,8 @@ interface Props {
   orderDate: string;
   existing: Order;
   hasNext: boolean;
+  drivers: Driver[];
+  onAddDriver: (name: string) => Promise<void>;
   onClose: () => void;
   onSave: (orderNumber: number, input: OrderInput) => Promise<void>;
   onSaveAndNext: (orderNumber: number, input: OrderInput) => Promise<void>;
@@ -28,6 +32,8 @@ export default function OrderFormModal({
   orderDate,
   existing,
   hasNext,
+  drivers,
+  onAddDriver,
   onClose,
   onSave,
   onSaveAndNext,
@@ -144,12 +150,11 @@ export default function OrderFormModal({
           {status === "shipped" && (
             <>
               <Field label="司機的名字">
-                <input
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  className="input"
-                  placeholder="司機姓名"
-                  autoFocus
+                <DriverPicker
+                  drivers={drivers}
+                  selected={driverName}
+                  onSelect={setDriverName}
+                  onAddDriver={onAddDriver}
                 />
               </Field>
               <label className="flex items-center gap-2 text-sm text-neutral-700">
@@ -213,12 +218,11 @@ export default function OrderFormModal({
           {status === "unreturned" && (
             <>
               <Field label="備注司機名字">
-                <input
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  className="input"
-                  placeholder="司機姓名"
-                  autoFocus
+                <DriverPicker
+                  drivers={drivers}
+                  selected={driverName}
+                  onSelect={setDriverName}
+                  onAddDriver={onAddDriver}
                 />
               </Field>
               <Field label="備註日期（自動）">

@@ -21,8 +21,10 @@ npm run dev
 這個 sandbox 環境連不到外部 Supabase（網路政策擋掉了），所以資料表要你自己手動建立：
 
 1. 打開 Supabase 專案 -> SQL Editor -> New query
-2. 貼上 [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql) 的完整內容
-3. Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
+2. 依序貼上並執行這兩個檔案的完整內容：
+   - [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql)（出貨單主表）
+   - [`supabase/migrations/0002_drivers.sql`](./supabase/migrations/0002_drivers.sql)（司機名單，網站上用點選的司機清單就是存在這張表）
+3. 每個都 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
 
