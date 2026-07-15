@@ -31,6 +31,11 @@ function shiftDate(dateStr: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function isSunday(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
+}
+
 type FilterTab = "all" | OrderStatus;
 
 export default function OrdersDashboard() {
@@ -96,7 +101,8 @@ export default function OrdersDashboard() {
     // click. Once a date has any rows, leave it alone so deletions stick.
     // Only do this for today or earlier — opening a future date shouldn't
     // create it ahead of time (the 00:01 pg_cron job handles that on the day).
-    if (data.length === 0 && orderDate <= todayStr()) {
+    // Sundays are skipped entirely — nobody works, so no auto orders.
+    if (data.length === 0 && orderDate <= todayStr() && !isSunday(orderDate)) {
       const rows: OrderInput[] = [];
       for (let n = 1; n <= TOTAL_ORDER_NUMBERS; n++) rows.push(defaultRow(n));
 
