@@ -439,7 +439,6 @@ export default function OrdersDashboard() {
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={toggleSelect}
                 onUpdate={handleUpdate}
-                onFilterJump={setFilter}
                 onDelete={handleDelete}
               />
             ))

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatOrderNumber, Order, OrderInput, OrderStatus } from "@/types/order";
+import { formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -34,7 +34,6 @@ interface Props {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onUpdate: (order: Order, patch: Partial<OrderInput>) => Promise<void>;
-  onFilterJump: (status: OrderStatus) => void;
   onDelete: (order: Order) => void;
 }
 
@@ -47,7 +46,6 @@ export default function OrderRow({
   selected,
   onToggleSelect,
   onUpdate,
-  onFilterJump,
   onDelete,
 }: Props) {
   const [fieldOption, setFieldOption] = useState<FieldOption | "">(currentFieldOption(order));
@@ -61,19 +59,19 @@ export default function OrderRow({
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
+  const canPickDriver = order.status === null || isUnreturned;
   const displayedDriver = pendingDriver ?? order.driver_name;
 
   async function handleDriverSelect(name: string) {
-    if (isUnreturned) {
-      // Picking a driver on a 未回單 row is how staff confirms the slip
-      // came back, so it doubles as the unreturned -> 已回單 transition.
-      // Show the pill as selected for a beat before the row flips away so
-      // it's clear which driver was picked.
+    if (order.status === null || isUnreturned) {
+      // Picking a driver on a 未處理 (no status yet) or 未回單 row means the
+      // slip has already come back, so either way it commits straight to
+      // 已回單. Show the pill as selected for a beat before the row moves
+      // to its new status so it's clear which driver was picked.
       setPendingDriver(name);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await onUpdate(order, { driver_name: name, status: "returned" });
       setPendingDriver(null);
-      onFilterJump("returned");
       return;
     }
 
@@ -85,13 +83,13 @@ export default function OrderRow({
   }
 
   async function handlePromote() {
-    // Same one-beat pause as the driver-pick transition, so the row's new
-    // badge is visible for a moment before it jumps away to the 未回單 tab.
+    // Same one-beat pause as the driver-pick transition, so there's a moment
+    // to see the click register before the row disappears from 未處理 (the
+    // active tab stays put — only the row itself moves to its new status).
     setPromoting(true);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await onUpdate(order, { status: "unreturned" });
     setPromoting(false);
-    onFilterJump("unreturned");
   }
 
   function handleFieldOptionChange(next: string) {
@@ -178,7 +176,7 @@ export default function OrderRow({
             <button
               type="button"
               key={d.id}
-              disabled={(!isUnreturned && !editingDriver) || pendingDriver !== null}
+              disabled={(!canPickDriver && !editingDriver) || pendingDriver !== null}
               onClick={() => void handleDriverSelect(d.name)}
               className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
                 displayedDriver === d.name
