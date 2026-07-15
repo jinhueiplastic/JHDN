@@ -29,6 +29,7 @@ npm run dev
    - [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)（建立資料異動觸發器）
    - [`supabase/migrations/0006_orders_sync_queue.sql`](./supabase/migrations/0006_orders_sync_queue.sql)（把觸發器改成寫入同步佇列，見下面第 4 節）
    - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天 300 個單號，見下面第 3 節）
+   - [`supabase/migrations/0008_raise_order_number_limit.sql`](./supabase/migrations/0008_raise_order_number_limit.sql)（單號上限從 300 提高到 9999，給批次新增超過 300 號用）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -36,7 +37,7 @@ npm run dev
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `order_date` | date | 日期 |
-| `order_number` | smallint (1-300) | 單號，畫面上會補零顯示成 0001-0300 |
+| `order_number` | smallint (1-9999) | 單號，畫面上會補零顯示成 0001-9999 |
 | `status` | text | `unreturned`(未回單，預設) / `returned`(已回單) |
 | `driver_name` | text | 司機姓名 |
 | `out_of_county` | boolean | 是否外縣市 |
@@ -55,12 +56,22 @@ npm run dev
   `unreturned_date` 這欄位在已回單頁面會改標示成「已回單日期」，記錄確認回單的日期
 
 畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
-不需要另外開視窗。頁面最下方有司機名單管理，新增一次司機之後，每一列都能點選。
+不需要另外開視窗。頁面最下方有「+ 批次新增單號」，平常用不到（每天會自動建好
+0001-0300），只有某一天需要超過 300 號時才用這個手動補上去（可以填到 9999）。
 
 當天的 300 個單號不用等有人打開網站才建立——Supabase 有一個排程（`pg_cron`），
 每天台北時間 00:01 自動建立好，這樣 Google Sheet 那邊也有時間在大家開始上班前
 先同步完（見下面第 4 節同步佇列的說明）。網站上原本「選到還沒建立過的日期就自動
 建立 300 筆」的邏輯還在，當備援用（例如排程萬一沒跑成功）。
+
+## 網站頁面
+
+- **`/`**：首頁，連到下面兩個頁面
+- **`/daily`**（也可以用 `/daily.html`）：每日訂單管理，就是上面第 3 節說的畫面
+- **`/filter`**（也可以用 `/filter.html`）：依司機查詢，點選司機名字看他所有日期的
+  單號，可以選填起始/結束日期縮小範圍；頁面最下方收合的「司機名單管理」可以新增/
+  刪除司機（點旁邊的 ▾ 展開）
+- 每個頁面左上角都有 ☰ 選單按鈕，可以在三個頁面之間切換
 
 ## 4. Google Sheet 同步（Apps Script，自動排隊處理）
 

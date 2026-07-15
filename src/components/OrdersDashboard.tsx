@@ -5,9 +5,10 @@ import { supabase } from "@/lib/supabase/client";
 import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
 import OrderRow from "@/components/OrderRow";
-import DriverManager from "@/components/DriverManager";
+import BatchCreateModal from "@/components/BatchCreateModal";
 
 const TOTAL_ORDER_NUMBERS = 300;
+const MAX_ORDER_NUMBER = 9999;
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
 
@@ -25,6 +26,7 @@ export default function OrdersDashboard() {
   const [filter, setFilter] = useState<FilterTab>("unreturned");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
 
   useEffect(() => {
     void loadOrders();
@@ -41,24 +43,6 @@ export default function OrdersDashboard() {
       .select("*")
       .order("name", { ascending: true });
     if (!error) setDrivers(data as Driver[]);
-  }
-
-  async function handleAddDriver(name: string) {
-    const { error } = await supabase
-      .from(DRIVERS_TABLE)
-      .upsert({ name }, { onConflict: "name", ignoreDuplicates: true });
-    if (error) throw new Error(error.message);
-    await loadDrivers();
-  }
-
-  async function handleDeleteDriver(driver: Driver) {
-    if (!confirm(`確定要刪除司機「${driver.name}」嗎？`)) return;
-    const { error } = await supabase.from(DRIVERS_TABLE).delete().eq("id", driver.id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    await loadDrivers();
   }
 
   function defaultRow(n: number): OrderInput {
@@ -132,6 +116,27 @@ export default function OrdersDashboard() {
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
     [orders, filter]
   );
+
+  const nextAvailableNumber = useMemo(() => {
+    if (orders.length === 0) return 1;
+    const maxNumber = Math.max(...orders.map((o) => o.order_number));
+    return Math.min(maxNumber + 1, MAX_ORDER_NUMBER);
+  }, [orders]);
+
+  async function handleBatchCreate(start: number, end: number): Promise<number> {
+    const used = new Set(orders.map((o) => o.order_number));
+    const rows: OrderInput[] = [];
+    for (let n = start; n <= end; n++) {
+      if (n < 1 || n > MAX_ORDER_NUMBER || used.has(n)) continue;
+      rows.push(defaultRow(n));
+    }
+    if (rows.length === 0) return 0;
+
+    const { error } = await supabase.from(TABLE).insert(rows);
+    if (error) throw new Error(error.message);
+    await loadOrders();
+    return rows.length;
+  }
 
   async function handleUpdate(order: Order, patch: Partial<OrderInput>) {
     const merged: OrderInput = {
@@ -224,7 +229,7 @@ export default function OrdersDashboard() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">出貨單管理</h1>
         <div className="flex items-center gap-3">
@@ -378,7 +383,24 @@ export default function OrdersDashboard() {
         </table>
       </div>
 
-      <DriverManager drivers={drivers} onAdd={handleAddDriver} onDelete={handleDeleteDriver} />
+      <div className="mt-8 flex justify-center">
+        <button
+          type="button"
+          onClick={() => setBatchModalOpen(true)}
+          className="text-sm text-neutral-400 hover:text-neutral-600 hover:underline"
+        >
+          + 批次新增單號（超過 300 號時才需要）
+        </button>
+      </div>
+
+      {batchModalOpen && (
+        <BatchCreateModal
+          orderDate={orderDate}
+          minAvailable={nextAvailableNumber}
+          onClose={() => setBatchModalOpen(false)}
+          onCreate={handleBatchCreate}
+        />
+      )}
     </div>
   );
 }

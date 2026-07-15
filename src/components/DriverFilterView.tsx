@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Order, formatOrderNumber } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
+import DriverManager from "@/components/DriverManager";
 
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
@@ -12,9 +13,12 @@ const DRIVERS_TABLE = "JHDN_drivers";
 export default function DriverFilterView() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [managerOpen, setManagerOpen] = useState(false);
 
   async function loadDrivers() {
     const { data, error } = await supabase
@@ -24,13 +28,31 @@ export default function DriverFilterView() {
     if (!error) setDrivers(data as Driver[]);
   }
 
+  async function handleAddDriver(name: string) {
+    const { error } = await supabase
+      .from(DRIVERS_TABLE)
+      .upsert({ name }, { onConflict: "name", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    await loadDrivers();
+  }
+
+  async function handleDeleteDriver(driver: Driver) {
+    if (!confirm(`確定要刪除司機「${driver.name}」嗎？`)) return;
+    const { error } = await supabase.from(DRIVERS_TABLE).delete().eq("id", driver.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    await loadDrivers();
+  }
+
   async function loadOrdersForDriver(name: string) {
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("*")
-      .eq("driver_name", name)
+    let query = supabase.from(TABLE).select("*").eq("driver_name", name);
+    if (startDate) query = query.gte("order_date", startDate);
+    if (endDate) query = query.lte("order_date", endDate);
+    const { data, error } = await query
       .order("order_date", { ascending: false })
       .order("order_number", { ascending: true });
 
@@ -49,7 +71,8 @@ export default function DriverFilterView() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadOrdersForDriver(selectedDriver);
     }
-  }, [selectedDriver]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDriver, startDate, endDate]);
 
   function handleSelectDriver(name: string) {
     setOrders([]);
@@ -66,10 +89,10 @@ export default function DriverFilterView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+    <div className="mx-auto w-full max-w-5xl px-4 pt-20 pb-8">
       <h1 className="mb-6 text-xl font-semibold">依司機查詢</h1>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {drivers.map((d) => (
           <button
             type="button"
@@ -85,9 +108,44 @@ export default function DriverFilterView() {
           </button>
         ))}
         {drivers.length === 0 && (
-          <p className="text-sm text-neutral-400">還沒有司機資料</p>
+          <p className="text-sm text-neutral-400">還沒有司機資料，請到頁面最下方新增</p>
         )}
       </div>
+
+      {selectedDriver && (
+        <div className="mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-neutral-500">起始日期（選填）</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="input w-auto"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-neutral-500">結束日期（選填）</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="input w-auto"
+            />
+          </div>
+          {(startDate || endDate) && (
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+              }}
+              className="text-sm text-neutral-400 hover:underline"
+            >
+              清除日期篩選
+            </button>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
@@ -144,6 +202,22 @@ export default function DriverFilterView() {
           </table>
         </div>
       )}
+
+      <div className="mt-10 border-t border-neutral-200 pt-4">
+        <button
+          type="button"
+          onClick={() => setManagerOpen((v) => !v)}
+          className="flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-600"
+        >
+          <span className={`transition-transform ${managerOpen ? "rotate-180" : ""}`}>▾</span>
+          司機名單管理
+        </button>
+        {managerOpen && (
+          <div className="mt-3">
+            <DriverManager drivers={drivers} onAdd={handleAddDriver} onDelete={handleDeleteDriver} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
