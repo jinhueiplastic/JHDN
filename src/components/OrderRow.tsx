@@ -121,13 +121,6 @@ export default function OrderRow({
     void onUpdate(order, { shipped_date: value || null });
   }
 
-  const priceSummary = [
-    order.order_price != null && `填單價 ${order.order_price}`,
-    order.cash_sale_price != null && `現銷價 ${order.cash_sale_price}`,
-    order.invoice_price != null && `發票 ${order.invoice_price}`,
-    order.shipped_date != null && `出貨日 ${order.shipped_date}`,
-  ].filter(Boolean);
-
   return (
     <>
       <div className={CELL}>
@@ -164,7 +157,6 @@ export default function OrderRow({
         <input
           type="checkbox"
           checked={order.out_of_county}
-          disabled={!isUnreturned}
           onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
           className="h-4 w-4 rounded border-neutral-300"
         />
@@ -204,45 +196,39 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        {isUnreturned ? (
-          <div className="flex items-center gap-1">
-            <select
-              value={fieldOption}
-              onChange={(e) => handleFieldOptionChange(e.target.value)}
-              className="input py-1 text-sm"
-            >
-              <option value="">(未選擇)</option>
-              <option value="order_price">填單價</option>
-              <option value="cash_sale_price">現銷價</option>
-              <option value="invoice_price">發票金額</option>
-              <option value="shipped_date">實際出貨日</option>
-            </select>
-            {fieldOption === "shipped_date" ? (
+        <div className="flex items-center gap-1">
+          <select
+            value={fieldOption}
+            onChange={(e) => handleFieldOptionChange(e.target.value)}
+            className="input py-1 text-sm"
+          >
+            <option value="">(未選擇)</option>
+            <option value="order_price">填單價</option>
+            <option value="cash_sale_price">現銷價</option>
+            <option value="invoice_price">發票金額</option>
+            <option value="shipped_date">實際出貨日</option>
+          </select>
+          {fieldOption === "shipped_date" ? (
+            <input
+              type="date"
+              value={shippedDate}
+              onChange={(e) => commitShippedDate(e.target.value)}
+              className="input w-32 py-1 text-sm"
+            />
+          ) : (
+            fieldOption && (
               <input
-                type="date"
-                value={shippedDate}
-                onChange={(e) => commitShippedDate(e.target.value)}
-                className="input w-32 py-1 text-sm"
+                type="number"
+                step="0.01"
+                value={priceValue}
+                onChange={(e) => setPriceValue(e.target.value)}
+                onBlur={(e) => commitPriceValue(e.target.value)}
+                placeholder={PRICE_LABELS[fieldOption]}
+                className="input w-20 py-1 text-sm"
               />
-            ) : (
-              fieldOption && (
-                <input
-                  type="number"
-                  step="0.01"
-                  value={priceValue}
-                  onChange={(e) => setPriceValue(e.target.value)}
-                  onBlur={(e) => commitPriceValue(e.target.value)}
-                  placeholder={PRICE_LABELS[fieldOption]}
-                  className="input w-20 py-1 text-sm"
-                />
-              )
-            )}
-          </div>
-        ) : (
-          <span className="text-neutral-500">
-            {priceSummary.length > 0 ? priceSummary.join("、") : "-"}
-          </span>
-        )}
+            )
+          )}
+        </div>
       </div>
 
       <div className={CELL}>{order.unreturned_date ?? "-"}</div>
