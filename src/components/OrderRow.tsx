@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatOrderNumber, Order, OrderInput } from "@/types/order";
+import { formatMinguoSlash, formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -231,7 +231,9 @@ export default function OrderRow({
         </div>
       </div>
 
-      <div className={CELL}>{order.unreturned_date ?? "-"}</div>
+      <div className={CELL}>
+        {order.unreturned_date ? formatMinguoSlash(order.unreturned_date) : "-"}
+      </div>
 
       <div className={CELL}>
         {isReturned ? (

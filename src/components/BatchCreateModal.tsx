@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatMinguoDate, formatOrderCode } from "@/types/order";
+import { formatMinguoSlash, formatOrderCode } from "@/types/order";
 
 const MAX_ORDER_NUMBER = 9999;
 
@@ -62,8 +62,7 @@ export default function BatchCreateModal({
         </div>
 
         <p className="mb-4 text-sm text-neutral-500">
-          日期：<span className="font-medium text-neutral-900">{orderDate}</span>
-          （民國 {formatMinguoDate(orderDate)}）
+          日期：<span className="font-medium text-neutral-900">{formatMinguoSlash(orderDate)}</span>
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -94,8 +93,9 @@ export default function BatchCreateModal({
 
           <p className="text-xs text-neutral-400">
             將建立 {formatOrderCode(orderDate, start)} ~ {formatOrderCode(orderDate, end)}
-            之間尚未建立的單號（已存在的不會被覆蓋），狀態預設為「未回單」，之後可以逐筆點進去編輯。
-            平常一開日期就會自動建好 0001-0300，這裡只用在需要超過 300 號的時候。
+            之間尚未建立的單號（已存在的不會被覆蓋），狀態預設沒有，會出現在「未處理」，
+            之後可以逐筆點進去編輯。平常一開日期就會自動建好 0001-0300，這裡只用在需要
+            超過 300 號的時候。
           </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

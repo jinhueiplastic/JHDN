@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
+import {
+  formatMinguoSlash,
+  Order,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUSES,
+  OrderInput,
+  OrderStatus,
+} from "@/types/order";
 import { Driver } from "@/types/driver";
 import OrderRow from "@/components/OrderRow";
 import BatchCreateModal from "@/components/BatchCreateModal";
@@ -286,7 +293,10 @@ export default function OrdersDashboard() {
             <NavMenu />
             <h1 className="text-xl font-semibold">出貨單管理</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <span className="whitespace-nowrap text-lg font-semibold text-neutral-700">
+              {formatMinguoSlash(orderDate)}
+            </span>
             <button
               type="button"
               onClick={() => {

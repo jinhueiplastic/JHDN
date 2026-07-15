@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { formatOrderNumber, Order, ORDER_STATUS_LABEL } from "@/types/order";
+import { formatMinguoSlash, formatOrderNumber, Order, ORDER_STATUS_LABEL } from "@/types/order";
 import { Driver } from "@/types/driver";
 import NavMenu from "@/components/NavMenu";
 
@@ -112,7 +112,7 @@ export default function ReportView() {
       for (const o of orders) {
         const [orderPrice, cashSalePrice, invoicePrice] = priceCells(o);
         const row = sheet.addRow([
-          o.order_date,
+          formatMinguoSlash(o.order_date),
           formatOrderNumber(o.order_number),
           o.status ? ORDER_STATUS_LABEL[o.status] : "沒有狀態",
           o.driver_name ?? "",
@@ -120,7 +120,7 @@ export default function ReportView() {
           orderPrice,
           cashSalePrice,
           invoicePrice,
-          o.unreturned_date ?? "",
+          o.unreturned_date ? formatMinguoSlash(o.unreturned_date) : "",
         ]);
 
         if (o.status === "unreturned") {

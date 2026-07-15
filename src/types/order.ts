@@ -51,6 +51,13 @@ export function formatMinguoDate(dateStr: string): string {
   return `${minguoYear}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
 }
 
+/** 民國年/月/日，例如 2026-07-14 -> "115/07/14"（畫面上顯示日期用這個格式） */
+export function formatMinguoSlash(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const minguoYear = y - 1911;
+  return `${minguoYear}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`;
+}
+
 /** 完整單號代碼，例如 "11507140001" */
 export function formatOrderCode(dateStr: string, orderNumber: number): string {
   return `${formatMinguoDate(dateStr)}${formatOrderNumber(orderNumber)}`;
