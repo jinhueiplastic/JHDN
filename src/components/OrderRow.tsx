@@ -113,6 +113,16 @@ export default function OrderRow({
         </div>
       </td>
 
+      <td className="px-2 py-2 text-center">
+        <input
+          type="checkbox"
+          checked={order.out_of_county}
+          disabled={isReturned}
+          onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
+          className="h-4 w-4 rounded border-neutral-300"
+        />
+      </td>
+
       <td className="px-2 py-2">
         <div className="flex flex-col items-start gap-1">
           <div className="flex max-w-[280px] flex-wrap gap-2">
@@ -154,16 +164,6 @@ export default function OrderRow({
             </button>
           )}
         </div>
-      </td>
-
-      <td className="px-2 py-2 text-center">
-        <input
-          type="checkbox"
-          checked={order.out_of_county}
-          disabled={isReturned}
-          onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
-          className="h-4 w-4 rounded border-neutral-300"
-        />
       </td>
 
       <td className="px-2 py-2">

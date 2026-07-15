@@ -377,8 +377,8 @@ export default function OrdersDashboard() {
               </th>
               <th className="px-3 py-2">單號</th>
               <th className="px-2 py-2">狀態</th>
-              <th className="px-2 py-2">司機</th>
               <th className="px-2 py-2">外縣市</th>
+              <th className="px-2 py-2">司機</th>
               <th className="px-2 py-2">價格</th>
               <th className="px-3 py-2">{filter === "returned" ? "已回單日期" : "未回單日期"}</th>
               <th className="px-3 py-2"></th>
