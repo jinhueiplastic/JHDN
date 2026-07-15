@@ -113,20 +113,26 @@ export default function OrdersDashboard() {
     setLoading(false);
   }
 
+  // "all" now means 未處理 (never-promoted, status === null) rather than
+  // literally every order — 未回單/已回單 are their own separate tabs.
   const counts = useMemo(() => {
     const c: Record<FilterTab, number> = {
-      all: orders.length,
+      all: 0,
       returned: 0,
       unreturned: 0,
     };
     for (const o of orders) {
       if (o.status) c[o.status]++;
+      else c.all++;
     }
     return c;
   }, [orders]);
 
   const visibleOrders = useMemo(
-    () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
+    () =>
+      filter === "all"
+        ? orders.filter((o) => o.status === null)
+        : orders.filter((o) => o.status === filter),
     [orders, filter]
   );
 
@@ -296,7 +302,7 @@ export default function OrdersDashboard() {
   
         <div className="mb-4 flex gap-2">
           <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-            全部 ({counts.all})
+            未處理 ({counts.all})
           </FilterButton>
           {ORDER_STATUSES.map((s) => (
             <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>

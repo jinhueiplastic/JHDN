@@ -146,16 +146,7 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        {order.status === null ? (
-          <button
-            type="button"
-            disabled={promoting}
-            onClick={() => void handlePromote()}
-            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
-          >
-            未回單
-          </button>
-        ) : (
+        {order.status !== null && (
           <div className="flex flex-col items-start gap-1">
             <StatusBadge status={order.status} />
             {isReturned && (
@@ -202,6 +193,16 @@ export default function OrderRow({
             <span className="text-xs text-neutral-400">請先到下面新增司機</span>
           )}
         </div>
+        {order.status === null && (
+          <button
+            type="button"
+            disabled={promoting}
+            onClick={() => void handlePromote()}
+            className="mt-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+          >
+            未回單
+          </button>
+        )}
       </div>
 
       <div className={CELL}>
