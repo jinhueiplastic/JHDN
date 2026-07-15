@@ -131,44 +131,24 @@ export default function OrderRow({
       </td>
 
       <td className="px-2 py-2">
-        <div className="flex flex-col items-start gap-1">
-          <div className="flex max-w-[280px] flex-wrap gap-2">
-            {drivers.map((d) => (
-              <button
-                type="button"
-                key={d.id}
-                disabled={(isReturned && !editingDriver) || pendingDriver !== null}
-                onClick={() => void handleDriverSelect(d.name)}
-                className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-                  displayedDriver === d.name
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                {d.name}
-              </button>
-            ))}
-            {drivers.length === 0 && (
-              <span className="text-xs text-neutral-400">請先到下面新增司機</span>
-            )}
-          </div>
-          {isReturned && !editingDriver && (
+        <div className="flex max-w-[280px] flex-wrap gap-2">
+          {drivers.map((d) => (
             <button
               type="button"
-              onClick={() => setEditingDriver(true)}
-              className="text-xs text-neutral-400 hover:underline"
+              key={d.id}
+              disabled={(isReturned && !editingDriver) || pendingDriver !== null}
+              onClick={() => void handleDriverSelect(d.name)}
+              className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                displayedDriver === d.name
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+              }`}
             >
-              編輯
+              {d.name}
             </button>
-          )}
-          {isReturned && editingDriver && (
-            <button
-              type="button"
-              onClick={() => setEditingDriver(false)}
-              className="text-xs text-neutral-400 hover:underline"
-            >
-              取消編輯
-            </button>
+          ))}
+          {drivers.length === 0 && (
+            <span className="text-xs text-neutral-400">請先到下面新增司機</span>
           )}
         </div>
       </td>
@@ -208,13 +188,23 @@ export default function OrderRow({
       <td className="px-3 py-2">{order.unreturned_date ?? "-"}</td>
 
       <td className="px-3 py-2">
-        <button
-          type="button"
-          onClick={() => onDelete(order)}
-          className="text-xs text-red-600 hover:underline"
-        >
-          刪除
-        </button>
+        {isReturned ? (
+          <button
+            type="button"
+            onClick={() => setEditingDriver((v) => !v)}
+            className="text-xs text-neutral-500 hover:underline"
+          >
+            {editingDriver ? "取消編輯" : "編輯"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onDelete(order)}
+            className="text-xs text-red-600 hover:underline"
+          >
+            刪除
+          </button>
+        )}
       </td>
     </tr>
   );
