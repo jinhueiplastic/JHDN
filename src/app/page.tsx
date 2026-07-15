@@ -19,6 +19,12 @@ export default function Home() {
         >
           依司機查詢
         </Link>
+        <Link
+          href="/order"
+          className="rounded-md border border-neutral-300 px-4 py-3 text-center text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          依單號查詢
+        </Link>
       </div>
     </div>
   );

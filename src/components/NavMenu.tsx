@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "首頁" },
   { href: "/daily", label: "每日訂單管理" },
   { href: "/filter", label: "依司機查詢" },
+  { href: "/order", label: "依單號查詢" },
 ];
 
 export default function NavMenu() {

@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/daily.html", destination: "/daily" },
       { source: "/filter.html", destination: "/filter" },
+      { source: "/order.html", destination: "/order" },
     ];
   },
   async headers() {
