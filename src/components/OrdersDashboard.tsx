@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase/client";
 import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
 import OrderRow from "@/components/OrderRow";
-import BatchCreateModal from "@/components/BatchCreateModal";
 import DriverManager from "@/components/DriverManager";
 
 const TOTAL_ORDER_NUMBERS = 300;
@@ -24,7 +23,6 @@ export default function OrdersDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>("unreturned");
-  const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -135,30 +133,6 @@ export default function OrdersDashboard() {
     [orders, filter]
   );
 
-  const availableOrderNumbers = useMemo(() => {
-    const used = new Set(orders.map((o) => o.order_number));
-    const result: number[] = [];
-    for (let n = 1; n <= TOTAL_ORDER_NUMBERS; n++) {
-      if (!used.has(n)) result.push(n);
-    }
-    return result;
-  }, [orders]);
-
-  async function handleBatchCreate(start: number, end: number): Promise<number> {
-    const used = new Set(orders.map((o) => o.order_number));
-    const rows: OrderInput[] = [];
-    for (let n = start; n <= end; n++) {
-      if (n < 1 || n > TOTAL_ORDER_NUMBERS || used.has(n)) continue;
-      rows.push(defaultRow(n));
-    }
-    if (rows.length === 0) return 0;
-
-    const { error } = await supabase.from(TABLE).insert(rows);
-    if (error) throw new Error(error.message);
-    await loadOrders();
-    return rows.length;
-  }
-
   async function handleUpdate(order: Order, patch: Partial<OrderInput>) {
     const merged: OrderInput = {
       order_date: order.order_date,
@@ -263,13 +237,6 @@ export default function OrdersDashboard() {
             }}
             className="input w-auto"
           />
-          <button
-            onClick={() => setBatchModalOpen(true)}
-            disabled={availableOrderNumbers.length === 0}
-            className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            + 批次新增單號
-          </button>
         </div>
       </div>
 
@@ -412,16 +379,6 @@ export default function OrdersDashboard() {
       </div>
 
       <DriverManager drivers={drivers} onAdd={handleAddDriver} onDelete={handleDeleteDriver} />
-
-      {batchModalOpen && (
-        <BatchCreateModal
-          orderDate={orderDate}
-          minAvailable={availableOrderNumbers[0] ?? 1}
-          maxAvailable={TOTAL_ORDER_NUMBERS}
-          onClose={() => setBatchModalOpen(false)}
-          onCreate={handleBatchCreate}
-        />
-      )}
     </div>
   );
 }
