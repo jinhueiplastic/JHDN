@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
-  formatMinguoSlash,
   Order,
   ORDER_STATUS_LABEL,
   ORDER_STATUSES,
@@ -14,8 +13,9 @@ import { Driver } from "@/types/driver";
 import OrderRow from "@/components/OrderRow";
 import BatchCreateModal from "@/components/BatchCreateModal";
 import NavMenu from "@/components/NavMenu";
+import MinguoDateInput from "@/components/MinguoDateInput";
 
-const TOTAL_ORDER_NUMBERS = 300;
+const TOTAL_ORDER_NUMBERS = 200;
 const MAX_ORDER_NUMBER = 9999;
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
@@ -90,7 +90,7 @@ export default function OrdersDashboard() {
       return;
     }
 
-    // A date nobody has touched yet: provision all 300 slots up front as
+    // A date nobody has touched yet: provision all 200 slots up front as
     // 未回單 so the whole board is ready without a separate "batch create"
     // click. Once a date has any rows, leave it alone so deletions stick.
     // Only do this for today or earlier — opening a future date shouldn't
@@ -293,10 +293,7 @@ export default function OrdersDashboard() {
             <NavMenu />
             <h1 className="text-xl font-semibold">出貨單管理</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="whitespace-nowrap text-lg font-semibold text-neutral-700">
-              {formatMinguoSlash(orderDate)}
-            </span>
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => {
@@ -308,14 +305,13 @@ export default function OrdersDashboard() {
             >
               ‹
             </button>
-            <input
-              type="date"
+            <MinguoDateInput
               value={orderDate}
-              onChange={(e) => {
-                setOrderDate(e.target.value);
+              onChange={(v) => {
+                setOrderDate(v);
                 setSelectedIds(new Set());
               }}
-              className="input w-auto"
+              className="w-32 text-lg font-semibold"
             />
             <button
               type="button"
@@ -490,7 +486,7 @@ export default function OrdersDashboard() {
           onClick={() => setBatchModalOpen(true)}
           className="text-sm text-neutral-400 hover:text-neutral-600 hover:underline"
         >
-          + 批次新增單號（超過 300 號時才需要）
+          + 批次新增單號（超過 200 號時才需要）
         </button>
       </div>
 

@@ -28,10 +28,11 @@ npm run dev
    - [`supabase/migrations/0004_backfill_missing_status.sql`](./supabase/migrations/0004_backfill_missing_status.sql)（把現有資料裡沒有正確狀態的舊資料都補成未回單）
    - [`supabase/migrations/0005_orders_webhook_trigger.sql`](./supabase/migrations/0005_orders_webhook_trigger.sql)（建立資料異動觸發器）
    - [`supabase/migrations/0006_orders_sync_queue.sql`](./supabase/migrations/0006_orders_sync_queue.sql)（把觸發器改成寫入同步佇列，見下面第 4 節）
-   - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天 300 個單號，見下面第 3 節）
-   - [`supabase/migrations/0008_raise_order_number_limit.sql`](./supabase/migrations/0008_raise_order_number_limit.sql)（單號上限從 300 提高到 9999，給批次新增超過 300 號用）
+   - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天的單號，見下面第 3 節）
+   - [`supabase/migrations/0008_raise_order_number_limit.sql`](./supabase/migrations/0008_raise_order_number_limit.sql)（單號上限從 300 提高到 9999，給批次新增超過每日預設量用）
    - [`supabase/migrations/0009_shipped_date.sql`](./supabase/migrations/0009_shipped_date.sql)（新增「實際出貨日」欄位）
    - [`supabase/migrations/0010_status_defaults_to_none.sql`](./supabase/migrations/0010_status_defaults_to_none.sql)（新單號預設沒有狀態，見下面第 3 節）
+   - [`supabase/migrations/0011_daily_order_count_200.sql`](./supabase/migrations/0011_daily_order_count_200.sql)（每天自動建立的單號數量從 300 改成 200）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -72,13 +73,13 @@ npm run dev
 
 畫面上方可依日期查詢、依狀態（未處理/未回單/已回單）篩選，預設打開「未處理」；每一列
 直接在表格上編輯，不需要另外開視窗。頁面最下方有「+ 批次新增單號」，平常用不到
-（每天會自動建好 0001-0300），只有某一天需要超過 300 號時才用這個手動補上去
+（每天會自動建好 0001-0200），只有某一天需要超過 200 號時才用這個手動補上去
 （可以填到 9999）。
 
-當天的 300 個單號不用等有人打開網站才建立——Supabase 有一個排程（`pg_cron`），
+當天的 200 個單號不用等有人打開網站才建立——Supabase 有一個排程（`pg_cron`），
 每天台北時間 00:01 自動建立好（沒有狀態，跟手動建立的一樣），這樣 Google Sheet
 那邊也有時間在大家開始上班前先同步完（見下面第 4 節同步佇列的說明）。網站上原本
-「選到還沒建立過的日期就自動建立 300 筆」的邏輯還在，當備援用（例如排程萬一沒跑
+「選到還沒建立過的日期就自動建立 200 筆」的邏輯還在，當備援用（例如排程萬一沒跑
 成功）。
 
 ## 網站頁面
@@ -97,7 +98,7 @@ npm run dev
   的訂單是粗體紅字
 - 每個頁面左上角都有 ☰ 選單按鈕，可以在五個頁面之間切換
 
-選日期時如果選到還沒到的未來日期，不會自動建立那天的 300 個單號（只有今天或
+選日期時如果選到還沒到的未來日期，不會自動建立那天的 200 個單號（只有今天或
 過去的日期，或是每天 00:01 的排程，才會自動建立）。
 
 ## 4. Google Sheet 同步（Apps Script，自動排隊處理）
@@ -110,7 +111,7 @@ npm run dev
 資料）。你自己的「出貨單」「Data」分頁不受影響。
 
 這樣設計是因為：如果每次異動都「立刻」直接呼叫 Google（例如選一個新日期一次
-建立 300 個單號），會瞬間送出幾百個請求，Google Apps Script 處理不了這麼多
+建立 200 個單號），會瞬間送出幾百個請求，Google Apps Script 處理不了這麼多
 「同時」的請求，資料會遺漏、順序也會錯亂。改成排隊 + 每分鐘自動清空，不管一次
 異動幾筆都不會出錯，也完全不需要手動點任何按鈕——一般情況下新資料大約 1 分鐘
 內就會出現在 Sheet 上，一次異動很多筆的話，全部同步完可能要多等個幾分鐘。

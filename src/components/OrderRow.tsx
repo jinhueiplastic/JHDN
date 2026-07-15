@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatMinguoSlash, formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
+import MinguoDateInput from "@/components/MinguoDateInput";
 
 type PriceField = "order_price" | "cash_sale_price" | "invoice_price";
 type FieldOption = PriceField | "shipped_date";
@@ -170,7 +171,7 @@ export default function OrderRow({
               key={d.id}
               disabled={(!canPickDriver && !editingDriver) || pendingDriver !== null}
               onClick={() => void handleDriverSelect(d.name)}
-              className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`rounded-full border px-3 py-1 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60 ${
                 displayedDriver === d.name
                   ? "border-neutral-900 bg-neutral-900 text-white"
                   : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
@@ -209,11 +210,10 @@ export default function OrderRow({
             <option value="shipped_date">實際出貨日</option>
           </select>
           {fieldOption === "shipped_date" ? (
-            <input
-              type="date"
+            <MinguoDateInput
               value={shippedDate}
-              onChange={(e) => commitShippedDate(e.target.value)}
-              className="input w-32 py-1 text-sm"
+              onChange={commitShippedDate}
+              className="w-32 py-1 text-sm"
             />
           ) : (
             fieldOption && (

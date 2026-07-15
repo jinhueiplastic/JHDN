@@ -94,8 +94,8 @@ export default function BatchCreateModal({
           <p className="text-xs text-neutral-400">
             將建立 {formatOrderCode(orderDate, start)} ~ {formatOrderCode(orderDate, end)}
             之間尚未建立的單號（已存在的不會被覆蓋），狀態預設沒有，會出現在「未處理」，
-            之後可以逐筆點進去編輯。平常一開日期就會自動建好 0001-0300，這裡只用在需要
-            超過 300 號的時候。
+            之後可以逐筆點進去編輯。平常一開日期就會自動建好 0001-0200，這裡只用在需要
+            超過 200 號的時候。
           </p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
