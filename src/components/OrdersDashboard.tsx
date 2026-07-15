@@ -72,6 +72,7 @@ export default function OrdersDashboard() {
       invoice_price: null,
       shipped_date: null,
       unreturned_date: null,
+      void_reason: null,
     };
   }
 
@@ -127,6 +128,7 @@ export default function OrdersDashboard() {
       all: 0,
       returned: 0,
       unreturned: 0,
+      voided: 0,
     };
     for (const o of orders) {
       if (o.status) c[o.status]++;
@@ -176,6 +178,7 @@ export default function OrdersDashboard() {
       invoice_price: order.invoice_price,
       shipped_date: order.shipped_date,
       unreturned_date: order.unreturned_date,
+      void_reason: order.void_reason,
       ...patch,
     };
 
@@ -200,16 +203,6 @@ export default function OrdersDashboard() {
       return;
     }
     setOrders((prev) => prev.map((o) => (o.id === order.id ? (data as Order) : o)));
-  }
-
-  async function handleDelete(order: Order) {
-    if (!confirm(`確定要刪除單號 ${order.order_number} 嗎？`)) return;
-    const { error } = await supabase.from(TABLE).delete().eq("id", order.id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setOrders((prev) => prev.filter((o) => o.id !== order.id));
   }
 
   function toggleSelect(id: string) {
@@ -260,6 +253,7 @@ export default function OrdersDashboard() {
       invoice_price: null,
       shipped_date: null,
       unreturned_date: null,
+      void_reason: null,
     });
   }
 
@@ -439,7 +433,11 @@ export default function OrdersDashboard() {
           <div className={thClass}>司機</div>
           <div className={thClass}>價格</div>
           <div className={thClass}>
-            {filter === "returned" ? "已回單日期" : "未回單日期"}
+            {filter === "returned"
+              ? "已回單日期"
+              : filter === "voided"
+                ? "作廢原因"
+                : "未回單日期"}
           </div>
           <div className={thClass}></div>
         </div>
@@ -473,7 +471,6 @@ export default function OrdersDashboard() {
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={toggleSelect}
                 onUpdate={handleUpdate}
-                onDelete={handleDelete}
               />
             ))
           )}

@@ -1,16 +1,17 @@
-export type OrderStatus = "returned" | "unreturned";
+export type OrderStatus = "returned" | "unreturned" | "voided";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   returned: "已回單",
   unreturned: "未回單",
+  voided: "作廢",
 };
 
-export const ORDER_STATUSES: OrderStatus[] = ["unreturned", "returned"];
+export const ORDER_STATUSES: OrderStatus[] = ["unreturned", "returned", "voided"];
 
 export interface Order {
   id: string;
   order_date: string; // YYYY-MM-DD
-  order_number: number; // 1-300, display zero-padded
+  order_number: number; // 1-9999, display zero-padded
   status: OrderStatus | null; // null = 新進來還沒設定狀態
 
   driver_name: string | null;
@@ -21,6 +22,7 @@ export interface Order {
   shipped_date: string | null; // 實際出貨日
 
   unreturned_date: string | null;
+  void_reason: string | null; // 作廢原因
 
   created_at: string;
   updated_at: string;
@@ -38,6 +40,7 @@ export type OrderInput = Pick<
   | "invoice_price"
   | "shipped_date"
   | "unreturned_date"
+  | "void_reason"
 >;
 
 export function formatOrderNumber(n: number): string {

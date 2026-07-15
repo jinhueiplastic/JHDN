@@ -42,6 +42,7 @@
 const STATUS_LABEL = {
   returned: "已回單",
   unreturned: "未回單",
+  voided: "作廢",
 };
 
 const HEADERS = [
@@ -54,6 +55,7 @@ const HEADERS = [
   "當日現銷價錢",
   "發票金額",
   "未回單日期",
+  "作廢原因",
   "建立時間",
   "更新時間",
 ];
@@ -190,6 +192,7 @@ function orderToRow(o) {
     o.cash_sale_price ?? "",
     o.invoice_price ?? "",
     o.unreturned_date || "",
+    o.void_reason || "",
     o.created_at,
     o.updated_at,
   ];

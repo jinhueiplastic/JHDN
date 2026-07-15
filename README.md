@@ -21,7 +21,7 @@ npm run dev
 這個 sandbox 環境連不到外部 Supabase（網路政策擋掉了），所以資料表要你自己手動建立：
 
 1. 打開 Supabase 專案 -> SQL Editor -> New query
-2. 依序貼上並執行這六個檔案的完整內容：
+2. 依序貼上並執行下面這些檔案的完整內容：
    - [`supabase/migrations/0001_init_orders.sql`](./supabase/migrations/0001_init_orders.sql)（訂單主表）
    - [`supabase/migrations/0002_drivers.sql`](./supabase/migrations/0002_drivers.sql)（司機名單，網站上用點選的司機清單就是存在這張表）
    - [`supabase/migrations/0003_drop_shipped_status.sql`](./supabase/migrations/0003_drop_shipped_status.sql)（把狀態簡化成只剩未回單/已回單兩種）
@@ -33,6 +33,7 @@ npm run dev
    - [`supabase/migrations/0009_shipped_date.sql`](./supabase/migrations/0009_shipped_date.sql)（新增「實際出貨日」欄位）
    - [`supabase/migrations/0010_status_defaults_to_none.sql`](./supabase/migrations/0010_status_defaults_to_none.sql)（新單號預設沒有狀態，見下面第 3 節）
    - [`supabase/migrations/0011_daily_order_count_200.sql`](./supabase/migrations/0011_daily_order_count_200.sql)（每天自動建立的單號數量從 300 改成 200）
+   - [`supabase/migrations/0012_void_orders.sql`](./supabase/migrations/0012_void_orders.sql)（新增「作廢」狀態跟作廢原因欄位，取代原本的刪除功能）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -41,7 +42,7 @@ npm run dev
 |---|---|---|
 | `order_date` | date | 日期 |
 | `order_number` | smallint (1-9999) | 單號，畫面上會補零顯示成 0001-9999 |
-| `status` | text，可為 null | null(新單號預設，沒有狀態) / `unreturned`(未回單) / `returned`(已回單) |
+| `status` | text，可為 null | null(新單號預設，沒有狀態) / `unreturned`(未回單) / `returned`(已回單) / `voided`(作廢) |
 | `driver_name` | text | 司機姓名 |
 | `out_of_county` | boolean | 是否外縣市 |
 | `order_price` | numeric | 填單價（跟現銷價、發票金額三選一） |
@@ -49,6 +50,7 @@ npm run dev
 | `invoice_price` | numeric | 有開發票的價錢 |
 | `shipped_date` | date | 實際出貨日，「價格」欄的下拉選單第 4 個選項，選了自動填今天，之後可自行更改 |
 | `unreturned_date` | date | 標記未回單/確認已回單當下自動記錄的日期 |
+| `void_reason` | text | 作廢原因，按「作廢」按鈕時填寫 |
 | `created_at` / `updated_at` | timestamptz | 自動填寫 |
 
 ## 3. 網站功能對照需求
@@ -68,10 +70,18 @@ npm run dev
   點錯已經確認過的紀錄）；如果點錯狀態可以用「改回未回單」修正；`unreturned_date` 這
   欄位在已回單頁面會改標示成「已回單日期」，記錄確認回單的日期
 
-全選訂單後，批次操作列有「設為原始狀態」，會把選取的訂單狀態、司機、外縣市、三種
-價格、實際出貨日、未回單日期全部清空，等於變回剛新增時的樣子，重新出現在「未處理」。
+沒有真正的「刪除」功能了，只有「未處理」分頁的每一列有「作廢」按鈕（取代原本的
+刪除），按下會跳出選原因的視窗：重複/打錯了/客人取消（三個都可以選填備註，例如
+重複可以填對應的單號）、其他（一定要填）。確認後這筆會轉成「作廢」狀態，出現在
+新增的「作廢」分頁，資料還是保留在資料庫、可以查到原因；如果作廢錯了，「作廢」
+分頁裡每一列有「恢復」可以改回「未處理」。未回單、已回單分頁都不會出現任何
+刪除/作廢按鈕。
 
-畫面上方可依日期查詢、依狀態（未處理/未回單/已回單）篩選，預設打開「未處理」；每一列
+全選訂單後，批次操作列有「設為原始狀態」，會把選取的訂單狀態、司機、外縣市、三種
+價格、實際出貨日、未回單日期、作廢原因全部清空，等於變回剛新增時的樣子，重新出現
+在「未處理」。
+
+畫面上方可依日期查詢、依狀態（未處理/未回單/已回單/作廢）篩選，預設打開「未處理」；每一列
 直接在表格上編輯，不需要另外開視窗。頁面最下方有「+ 批次新增單號」，平常用不到
 （每天會自動建好 0001-0200），只有某一天需要超過 200 號時才用這個手動補上去
 （可以填到 9999）。
@@ -122,15 +132,16 @@ npm run dev
 |---|---|---|
 | A | 日期 | order_date |
 | B | 單號 | 完整代碼，例如 `11507140001`（跟網站上顯示的一致，也是即時同步比對是哪一列用的欄位，不要刪掉這欄） |
-| C | 狀態 | 未回單 / 已回單 |
+| C | 狀態 | 未回單 / 已回單 / 作廢 |
 | D | 司機姓名 | driver_name |
 | E | 外縣市 | 是 / 否 |
 | F | 填單價 | order_price |
 | G | 當日現銷價錢 | cash_sale_price |
 | H | 發票金額 | invoice_price |
 | I | 未回單日期 | unreturned_date（未回單狀態顯示標記未回單的日期，已回單狀態顯示確認回單的日期） |
-| J | 建立時間 | created_at |
-| K | 更新時間 | updated_at |
+| J | 作廢原因 | void_reason |
+| K | 建立時間 | created_at |
+| L | 更新時間 | updated_at |
 
 設定步驟：
 

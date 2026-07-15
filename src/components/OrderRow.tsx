@@ -5,6 +5,7 @@ import { formatMinguoSlash, formatOrderNumber, Order, OrderInput } from "@/types
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 import MinguoDateInput from "@/components/MinguoDateInput";
+import VoidReasonModal from "@/components/VoidReasonModal";
 
 type PriceField = "order_price" | "cash_sale_price" | "invoice_price";
 type FieldOption = PriceField | "shipped_date";
@@ -35,7 +36,6 @@ interface Props {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onUpdate: (order: Order, patch: Partial<OrderInput>) => Promise<void>;
-  onDelete: (order: Order) => void;
 }
 
 // Local text-input state only ever changes via this row's own typing/commit
@@ -47,7 +47,6 @@ export default function OrderRow({
   selected,
   onToggleSelect,
   onUpdate,
-  onDelete,
 }: Props) {
   const [fieldOption, setFieldOption] = useState<FieldOption | "">(currentFieldOption(order));
   const [priceValue, setPriceValue] = useState(
@@ -57,11 +56,17 @@ export default function OrderRow({
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
+  const [voidModalOpen, setVoidModalOpen] = useState(false);
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
+  const isVoided = order.status === "voided";
   const canPickDriver = order.status === null || isUnreturned;
   const displayedDriver = pendingDriver ?? order.driver_name;
+
+  async function handleVoidConfirm(reason: string) {
+    await onUpdate(order, { status: "voided", void_reason: reason });
+  }
 
   async function handleDriverSelect(name: string) {
     if (order.status === null || isUnreturned) {
@@ -158,6 +163,7 @@ export default function OrderRow({
         <input
           type="checkbox"
           checked={order.out_of_county}
+          disabled={isVoided}
           onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
           className="h-4 w-4 rounded border-neutral-300"
         />
@@ -200,8 +206,9 @@ export default function OrderRow({
         <div className="flex flex-col items-start gap-1">
           <select
             value={fieldOption}
+            disabled={isVoided}
             onChange={(e) => handleFieldOptionChange(e.target.value)}
-            className="input py-1 text-sm"
+            className="input py-1 text-sm disabled:opacity-60"
           >
             <option value="">(未選擇)</option>
             <option value="order_price">填單價</option>
@@ -213,6 +220,7 @@ export default function OrderRow({
             <MinguoDateInput
               value={shippedDate}
               onChange={commitShippedDate}
+              disabled={isVoided}
               className="w-32 py-1 text-sm"
             />
           ) : (
@@ -221,10 +229,11 @@ export default function OrderRow({
                 type="number"
                 step="0.01"
                 value={priceValue}
+                disabled={isVoided}
                 onChange={(e) => setPriceValue(e.target.value)}
                 onBlur={(e) => commitPriceValue(e.target.value)}
                 placeholder={PRICE_LABELS[fieldOption]}
-                className="input w-20 py-1 text-sm"
+                className="input w-20 py-1 text-sm disabled:opacity-60"
               />
             )
           )}
@@ -232,7 +241,11 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        {order.unreturned_date ? formatMinguoSlash(order.unreturned_date) : "-"}
+        {isVoided
+          ? (order.void_reason ?? "-")
+          : order.unreturned_date
+            ? formatMinguoSlash(order.unreturned_date)
+            : "-"}
       </div>
 
       <div className={CELL}>
@@ -244,16 +257,32 @@ export default function OrderRow({
           >
             {editingDriver ? "取消編輯" : "編輯"}
           </button>
-        ) : (
+        ) : order.status === null ? (
           <button
             type="button"
-            onClick={() => onDelete(order)}
+            onClick={() => setVoidModalOpen(true)}
             className="text-xs text-red-600 hover:underline"
           >
-            刪除
+            作廢
           </button>
-        )}
+        ) : isVoided ? (
+          <button
+            type="button"
+            onClick={() => void onUpdate(order, { status: null, void_reason: null })}
+            className="text-xs text-neutral-400 hover:underline"
+          >
+            恢復
+          </button>
+        ) : null}
       </div>
+
+      {voidModalOpen && (
+        <VoidReasonModal
+          order={order}
+          onClose={() => setVoidModalOpen(false)}
+          onConfirm={handleVoidConfirm}
+        />
+      )}
     </>
   );
 }
