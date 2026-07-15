@@ -25,6 +25,12 @@ export default function Home() {
         >
           依單號查詢
         </Link>
+        <Link
+          href="/report"
+          className="rounded-md border border-neutral-300 px-4 py-3 text-center text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          列印報表
+        </Link>
       </div>
     </div>
   );

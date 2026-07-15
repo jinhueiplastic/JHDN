@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/daily", label: "每日訂單管理" },
   { href: "/filter", label: "依司機查詢" },
   { href: "/order", label: "依單號查詢" },
+  { href: "/report", label: "列印報表" },
 ];
 
 export default function NavMenu() {

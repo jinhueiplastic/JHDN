@@ -84,7 +84,9 @@ export default function OrdersDashboard() {
     // A date nobody has touched yet: provision all 300 slots up front as
     // 未回單 so the whole board is ready without a separate "batch create"
     // click. Once a date has any rows, leave it alone so deletions stick.
-    if (data.length === 0) {
+    // Only do this for today or earlier — opening a future date shouldn't
+    // create it ahead of time (the 00:01 pg_cron job handles that on the day).
+    if (data.length === 0 && orderDate <= todayStr()) {
       const rows: OrderInput[] = [];
       for (let n = 1; n <= TOTAL_ORDER_NUMBERS; n++) rows.push(defaultRow(n));
 
@@ -247,7 +249,7 @@ export default function OrdersDashboard() {
               setSelectedIds(new Set());
             }}
             aria-label="前一天"
-            className="rounded-md border border-neutral-300 px-2 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
           >
             ‹
           </button>
@@ -267,7 +269,7 @@ export default function OrdersDashboard() {
               setSelectedIds(new Set());
             }}
             aria-label="後一天"
-            className="rounded-md border border-neutral-300 px-2 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
           >
             ›
           </button>
