@@ -27,3 +27,16 @@ body {
   outline: 2px solid rgb(23 23 23);
   outline-offset: -1px;
 }
+
+/* Stretch the (invisible) calendar-icon hit target over the whole box, so
+   clicking anywhere in a MinguoDateInput opens the picker, not just the
+   sliver where the native icon would normally sit. */
+.minguo-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}

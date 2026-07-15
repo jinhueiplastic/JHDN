@@ -21,13 +21,14 @@ export default function MinguoDateInput({ value, onChange, className = "", disab
         disabled ? "opacity-60" : ""
       } ${className}`}
     >
-      {value ? formatMinguoSlash(value) : "選擇日期"}
+      <span>{value ? formatMinguoSlash(value) : "選擇日期"}</span>
+      <span className="ml-1 text-xs text-neutral-400">▾</span>
       <input
         type="date"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="minguo-date-input absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
       />
     </div>
   );
