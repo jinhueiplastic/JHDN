@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
@@ -34,11 +34,23 @@ export default function OrdersDashboard() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
 
   useEffect(() => {
     void loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderDate]);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      setToolbarHeight(entries[0].contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     void loadDrivers();
@@ -237,134 +249,142 @@ export default function OrdersDashboard() {
     setSelectedIds(new Set());
   }
 
+  const thClass = "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50";
+  const theadStickyStyle = { top: `${64 + toolbarHeight}px` };
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">出貨單管理</h1>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setOrderDate(shiftDate(orderDate, -1));
-              setSelectedIds(new Set());
-            }}
-            aria-label="前一天"
-            className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
-          >
-            ‹
-          </button>
-          <input
-            type="date"
-            value={orderDate}
-            onChange={(e) => {
-              setOrderDate(e.target.value);
-              setSelectedIds(new Set());
-            }}
-            className="input w-auto"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setOrderDate(shiftDate(orderDate, 1));
-              setSelectedIds(new Set());
-            }}
-            aria-label="後一天"
-            className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
-          >
-            ›
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-4 flex gap-2">
-        {ORDER_STATUSES.map((s) => (
-          <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
-            {ORDER_STATUS_LABEL[s]} ({counts[s]})
-          </FilterButton>
-        ))}
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-          全部 ({counts.all})
-        </FilterButton>
-      </div>
-
-      {error && (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
-      )}
-
-      {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-neutral-300 bg-neutral-50 p-3">
-          <span className="text-sm font-medium text-neutral-700">
-            已選取 {selectedIds.size} 筆
-          </span>
-
-          <div className="flex flex-wrap gap-1">
-            {drivers.map((d) => (
-              <button
-                type="button"
-                key={d.id}
-                onClick={() => void handleBulkUpdate({ driver_name: d.name })}
-                className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
-              >
-                {d.name}
-              </button>
-            ))}
+      <div
+        ref={toolbarRef}
+        className="sticky top-16 z-30 -mx-4 bg-neutral-50 px-4 pb-2"
+      >
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold">出貨單管理</h1>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setOrderDate(shiftDate(orderDate, -1));
+                setSelectedIds(new Set());
+              }}
+              aria-label="前一天"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
+            >
+              ‹
+            </button>
+            <input
+              type="date"
+              value={orderDate}
+              onChange={(e) => {
+                setOrderDate(e.target.value);
+                setSelectedIds(new Set());
+              }}
+              className="input w-auto"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setOrderDate(shiftDate(orderDate, 1));
+                setSelectedIds(new Set());
+              }}
+              aria-label="後一天"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-300 text-xl text-neutral-600 hover:bg-neutral-50"
+            >
+              ›
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              void handleBulkUpdate({ status: "unreturned", unreturned_date: todayStr() })
-            }
-            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
-          >
-            設為未回單
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void handleBulkUpdate({ status: "returned", unreturned_date: todayStr() })
-            }
-            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
-          >
-            設為已回單
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleBulkUpdate({ out_of_county: true })}
-            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
-          >
-            設為外縣市
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleBulkUpdate({ out_of_county: false })}
-            className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
-          >
-            設為非外縣市
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void handleBulkDelete()}
-            className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
-          >
-            刪除選取
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-sm text-neutral-400 hover:underline"
-          >
-            取消選取
-          </button>
         </div>
-      )}
+  
+        <div className="mb-4 flex gap-2">
+          {ORDER_STATUSES.map((s) => (
+            <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
+              {ORDER_STATUS_LABEL[s]} ({counts[s]})
+            </FilterButton>
+          ))}
+          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+            全部 ({counts.all})
+          </FilterButton>
+        </div>
+  
+        {error && (
+          <p className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
+        )}
+  
+        {selectedIds.size > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-neutral-300 bg-neutral-50 p-3">
+            <span className="text-sm font-medium text-neutral-700">
+              已選取 {selectedIds.size} 筆
+            </span>
+  
+            <div className="flex flex-wrap gap-1">
+              {drivers.map((d) => (
+                <button
+                  type="button"
+                  key={d.id}
+                  onClick={() => void handleBulkUpdate({ driver_name: d.name })}
+                  className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+                >
+                  {d.name}
+                </button>
+              ))}
+            </div>
+  
+            <button
+              type="button"
+              onClick={() =>
+                void handleBulkUpdate({ status: "unreturned", unreturned_date: todayStr() })
+              }
+              className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+            >
+              設為未回單
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void handleBulkUpdate({ status: "returned", unreturned_date: todayStr() })
+              }
+              className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+            >
+              設為已回單
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkUpdate({ out_of_county: true })}
+              className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+            >
+              設為外縣市
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkUpdate({ out_of_county: false })}
+              className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+            >
+              設為非外縣市
+            </button>
+  
+            <button
+              type="button"
+              onClick={() => void handleBulkDelete()}
+              className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+            >
+              刪除選取
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-auto text-sm text-neutral-400 hover:underline"
+            >
+              取消選取
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500">
+          <thead className="text-neutral-500">
             <tr>
-              <th className="px-3 py-2">
+              <th className={thClass} style={theadStickyStyle}>
                 <input
                   type="checkbox"
                   checked={
@@ -375,13 +395,15 @@ export default function OrdersDashboard() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </th>
-              <th className="px-3 py-2">單號</th>
-              <th className="px-2 py-2">狀態</th>
-              <th className="px-2 py-2">外縣市</th>
-              <th className="px-2 py-2">司機</th>
-              <th className="px-2 py-2">價格</th>
-              <th className="px-3 py-2">{filter === "returned" ? "已回單日期" : "未回單日期"}</th>
-              <th className="px-3 py-2"></th>
+              <th className={thClass} style={theadStickyStyle}>單號</th>
+              <th className={thClass} style={theadStickyStyle}>狀態</th>
+              <th className={thClass} style={theadStickyStyle}>外縣市</th>
+              <th className={thClass} style={theadStickyStyle}>司機</th>
+              <th className={thClass} style={theadStickyStyle}>價格</th>
+              <th className={thClass} style={theadStickyStyle}>
+                {filter === "returned" ? "已回單日期" : "未回單日期"}
+              </th>
+              <th className={thClass} style={theadStickyStyle}></th>
             </tr>
           </thead>
           <tbody>
