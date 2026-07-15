@@ -20,6 +20,10 @@ function currentPriceType(order: Order): PriceField | "" {
   return "";
 }
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 interface Props {
   order: Order;
   drivers: Driver[];
@@ -42,6 +46,7 @@ export default function OrderRow({
 }: Props) {
   const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
   const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
+  const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
 
@@ -70,8 +75,17 @@ export default function OrderRow({
   }
 
   function handlePriceTypeChange(next: string) {
-    setPriceType(next as PriceField | "");
+    const nextType = next as PriceField | "";
+    setPriceType(nextType);
     setPriceValue("");
+
+    // First time a price type is picked for this row, default the actual
+    // shipping date to today (still editable afterwards).
+    if (nextType && !order.shipped_date) {
+      const today = todayStr();
+      setShippedDate(today);
+      void onUpdate(order, { shipped_date: today });
+    }
   }
 
   function commitPriceValue(raw: string) {
@@ -82,6 +96,11 @@ export default function OrderRow({
       cash_sale_price: priceType === "cash_sale_price" ? parsed : null,
       invoice_price: priceType === "invoice_price" ? parsed : null,
     });
+  }
+
+  function commitShippedDate(value: string) {
+    setShippedDate(value);
+    void onUpdate(order, { shipped_date: value || null });
   }
 
   const priceSummary = [
@@ -182,6 +201,19 @@ export default function OrderRow({
           <span className="text-neutral-500">
             {priceSummary.length > 0 ? priceSummary.join("、") : "-"}
           </span>
+        )}
+      </td>
+
+      <td className="px-2 py-2">
+        {isUnreturned && priceType ? (
+          <input
+            type="date"
+            value={shippedDate}
+            onChange={(e) => commitShippedDate(e.target.value)}
+            className="input py-1 text-sm"
+          />
+        ) : (
+          <span className="text-neutral-500">{order.shipped_date ?? "-"}</span>
         )}
       </td>
 

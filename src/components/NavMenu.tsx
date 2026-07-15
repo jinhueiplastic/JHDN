@@ -11,6 +11,9 @@ const LINKS = [
   { href: "/report", label: "列印報表" },
 ];
 
+// Renders inline wherever it's placed (normal document flow, not fixed) so
+// it can sit inside a page's own sticky header without needing separate
+// offset math to keep the two in sync.
 export default function NavMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -24,22 +27,18 @@ export default function NavMenu() {
   }, []);
 
   return (
-    // Fixed pixel values (not the rem-based top-4/h-10 scale) so this stays
-    // put regardless of the site's root font-size — OrdersDashboard's sticky
-    // toolbar math assumes this exact pixel geometry and would drift out of
-    // sync otherwise.
-    <div ref={ref} className="fixed top-[16px] left-[16px] z-40">
+    <div ref={ref} className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="選單"
-        className="flex h-[40px] w-[40px] items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
+        className="flex h-10 w-10 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
       >
         <span className="text-lg leading-none">☰</span>
       </button>
 
       {open && (
-        <div className="mt-1 w-48 rounded-md border border-neutral-200 bg-white py-1 shadow-lg">
+        <div className="absolute top-full left-0 z-40 mt-1 w-48 rounded-md border border-neutral-200 bg-white py-1 shadow-lg">
           {LINKS.map((link) => (
             <Link
               key={link.href}

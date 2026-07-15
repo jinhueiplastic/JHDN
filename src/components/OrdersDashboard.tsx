@@ -6,15 +6,12 @@ import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } fr
 import { Driver } from "@/types/driver";
 import OrderRow from "@/components/OrderRow";
 import BatchCreateModal from "@/components/BatchCreateModal";
+import NavMenu from "@/components/NavMenu";
 
 const TOTAL_ORDER_NUMBERS = 300;
 const MAX_ORDER_NUMBER = 9999;
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
-
-// Fixed pixel clearance to sit below NavMenu's fixed hamburger button
-// (top:16px + height:40px = 56px), independent of root font-size.
-const NAV_CLEARANCE_PX = 64;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -78,6 +75,7 @@ export default function OrdersDashboard() {
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
+      shipped_date: null,
       unreturned_date: orderDate,
     };
   }
@@ -173,6 +171,7 @@ export default function OrdersDashboard() {
       order_price: order.order_price,
       cash_sale_price: order.cash_sale_price,
       invoice_price: order.invoice_price,
+      shipped_date: order.shipped_date,
       unreturned_date: order.unreturned_date,
       ...patch,
     };
@@ -254,17 +253,19 @@ export default function OrdersDashboard() {
   }
 
   const thClass = "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50";
-  const theadStickyStyle = { top: `${NAV_CLEARANCE_PX + toolbarHeight}px` };
+  const theadStickyStyle = { top: `${toolbarHeight}px` };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8">
+    <div className="mx-auto w-full max-w-6xl px-4 pt-8 pb-8">
       <div
         ref={toolbarRef}
-        className="sticky z-30 -mx-4 bg-neutral-50 px-4 pb-2"
-        style={{ top: `${NAV_CLEARANCE_PX}px` }}
+        className="sticky top-0 z-30 -mx-4 bg-neutral-50 px-4 pb-2"
       >
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">出貨單管理</h1>
+          <div className="flex items-center gap-3">
+            <NavMenu />
+            <h1 className="text-xl font-semibold">出貨單管理</h1>
+          </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -405,6 +406,7 @@ export default function OrdersDashboard() {
               <th className={thClass} style={theadStickyStyle}>外縣市</th>
               <th className={thClass} style={theadStickyStyle}>司機</th>
               <th className={thClass} style={theadStickyStyle}>價格</th>
+              <th className={thClass} style={theadStickyStyle}>實際出貨日</th>
               <th className={thClass} style={theadStickyStyle}>
                 {filter === "returned" ? "已回單日期" : "未回單日期"}
               </th>
@@ -414,13 +416,13 @@ export default function OrdersDashboard() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
                   載入中…
                 </td>
               </tr>
             ) : visibleOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
                   這一天還沒有資料
                 </td>
               </tr>

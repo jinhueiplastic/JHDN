@@ -18,6 +18,7 @@ export interface Order {
   order_price: number | null;
   cash_sale_price: number | null;
   invoice_price: number | null;
+  shipped_date: string | null; // 實際出貨日
 
   unreturned_date: string | null;
 
@@ -35,6 +36,7 @@ export type OrderInput = Pick<
   | "order_price"
   | "cash_sale_price"
   | "invoice_price"
+  | "shipped_date"
   | "unreturned_date"
 >;
 

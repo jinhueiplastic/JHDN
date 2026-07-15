@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { formatOrderNumber, Order, ORDER_STATUS_LABEL } from "@/types/order";
 import { Driver } from "@/types/driver";
+import NavMenu from "@/components/NavMenu";
 
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
@@ -152,8 +153,11 @@ export default function ReportView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pt-20 pb-8">
-      <h1 className="mb-6 text-xl font-semibold">列印報表</h1>
+    <div className="mx-auto w-full max-w-xl px-4 pt-8 pb-8">
+      <div className="mb-6 flex items-center gap-3">
+        <NavMenu />
+        <h1 className="text-xl font-semibold">列印報表</h1>
+      </div>
 
       <div className="mb-6 flex gap-2">
         <button

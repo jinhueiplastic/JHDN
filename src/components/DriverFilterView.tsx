@@ -6,6 +6,7 @@ import { Order, formatOrderNumber } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 import DriverManager from "@/components/DriverManager";
+import NavMenu from "@/components/NavMenu";
 
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
@@ -89,8 +90,11 @@ export default function DriverFilterView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pt-20 pb-8">
-      <h1 className="mb-6 text-xl font-semibold">依司機查詢</h1>
+    <div className="mx-auto w-full max-w-5xl px-4 pt-8 pb-8">
+      <div className="mb-6 flex items-center gap-3">
+        <NavMenu />
+        <h1 className="text-xl font-semibold">依司機查詢</h1>
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {drivers.map((d) => (

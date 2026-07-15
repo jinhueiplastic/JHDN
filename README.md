@@ -30,6 +30,7 @@ npm run dev
    - [`supabase/migrations/0006_orders_sync_queue.sql`](./supabase/migrations/0006_orders_sync_queue.sql)（把觸發器改成寫入同步佇列，見下面第 4 節）
    - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天 300 個單號，見下面第 3 節）
    - [`supabase/migrations/0008_raise_order_number_limit.sql`](./supabase/migrations/0008_raise_order_number_limit.sql)（單號上限從 300 提高到 9999，給批次新增超過 300 號用）
+   - [`supabase/migrations/0009_shipped_date.sql`](./supabase/migrations/0009_shipped_date.sql)（新增「實際出貨日」欄位）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -44,6 +45,7 @@ npm run dev
 | `order_price` | numeric | 填單價（跟現銷價、發票金額三選一） |
 | `cash_sale_price` | numeric | 當日現銷價錢 |
 | `invoice_price` | numeric | 有開發票的價錢 |
+| `shipped_date` | date | 實際出貨日，選了價格類型後第一次自動填今天，之後可自行更改 |
 | `unreturned_date` | date | 這筆單號建立/標記未回單當下自動記錄的日期 |
 | `created_at` / `updated_at` | timestamptz | 自動填寫 |
 
