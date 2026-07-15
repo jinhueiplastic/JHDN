@@ -43,15 +43,22 @@ export default function OrderRow({
   const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
   const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
   const [editingDriver, setEditingDriver] = useState(false);
+  const [pendingDriver, setPendingDriver] = useState<string | null>(null);
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
+  const displayedDriver = pendingDriver ?? order.driver_name;
 
   async function handleDriverSelect(name: string) {
     if (isUnreturned) {
       // Picking a driver on a 未回單 row is how staff confirms the slip
       // came back, so it doubles as the unreturned -> 已回單 transition.
+      // Show the pill as selected for a beat before the row flips away so
+      // it's clear which driver was picked.
+      setPendingDriver(name);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       await onUpdate(order, { driver_name: name, status: "returned" });
+      setPendingDriver(null);
       return;
     }
 
@@ -130,10 +137,10 @@ export default function OrderRow({
               <button
                 type="button"
                 key={d.id}
-                disabled={isReturned && !editingDriver}
+                disabled={(isReturned && !editingDriver) || pendingDriver !== null}
                 onClick={() => void handleDriverSelect(d.name)}
                 className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-                  order.driver_name === d.name
+                  displayedDriver === d.name
                     ? "border-neutral-900 bg-neutral-900 text-white"
                     : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
                 }`}
