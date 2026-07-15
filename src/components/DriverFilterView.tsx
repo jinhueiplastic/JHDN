@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Order, formatMinguoSlash, formatOrderNumber } from "@/types/order";
+import { Order, formatMinguoSlash, formatOrderNumber, formatOutOfCounty } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 import DriverManager from "@/components/DriverManager";
@@ -196,7 +196,7 @@ export default function DriverFilterView() {
                     <td className="px-2 py-2">
                       {o.status ? <StatusBadge status={o.status} /> : "-"}
                     </td>
-                    <td className="px-2 py-2">{o.out_of_county ? "是" : "否"}</td>
+                    <td className="px-2 py-2">{formatOutOfCounty(o)}</td>
                     <td className="px-2 py-2 text-neutral-600">{priceSummary(o)}</td>
                     <td className="px-3 py-2">
                       {o.unreturned_date ? formatMinguoSlash(o.unreturned_date) : "-"}

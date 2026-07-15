@@ -72,6 +72,7 @@ export default function OrdersDashboard() {
       status: null,
       driver_name: null,
       out_of_county: false,
+      out_of_county_count: null,
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
@@ -183,6 +184,7 @@ export default function OrdersDashboard() {
       status: order.status,
       driver_name: order.driver_name,
       out_of_county: order.out_of_county,
+      out_of_county_count: order.out_of_county_count,
       order_price: order.order_price,
       cash_sale_price: order.cash_sale_price,
       invoice_price: order.invoice_price,
@@ -258,6 +260,7 @@ export default function OrdersDashboard() {
       status: null,
       driver_name: null,
       out_of_county: false,
+      out_of_county_count: null,
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
@@ -392,7 +395,7 @@ export default function OrdersDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => void handleBulkUpdate({ out_of_county: false })}
+              onClick={() => void handleBulkUpdate({ out_of_county: false, out_of_county_count: null })}
               className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
             >
               設為非外縣市

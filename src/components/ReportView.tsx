@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { formatMinguoSlash, formatOrderNumber, Order, ORDER_STATUS_LABEL } from "@/types/order";
+import {
+  formatMinguoSlash,
+  formatOrderNumber,
+  formatOutOfCounty,
+  Order,
+  ORDER_STATUS_LABEL,
+} from "@/types/order";
 import { Driver } from "@/types/driver";
 import NavMenu from "@/components/NavMenu";
 
@@ -116,7 +122,7 @@ export default function ReportView() {
           formatOrderNumber(o.order_number),
           o.status ? ORDER_STATUS_LABEL[o.status] : "沒有狀態",
           o.driver_name ?? "",
-          o.out_of_county ? "是" : "否",
+          formatOutOfCounty(o),
           orderPrice,
           cashSalePrice,
           invoicePrice,

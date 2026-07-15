@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { formatMinguoSlash, formatOrderNumber, Order, parseOrderQuery } from "@/types/order";
+import {
+  formatMinguoSlash,
+  formatOrderNumber,
+  formatOutOfCounty,
+  Order,
+  parseOrderQuery,
+} from "@/types/order";
 import StatusBadge from "@/components/StatusBadge";
 import NavMenu from "@/components/NavMenu";
 
@@ -110,7 +116,7 @@ export default function OrderLookupView() {
           <dl className="space-y-2 text-sm">
             <Row label="日期" value={formatMinguoSlash(order.order_date)} />
             <Row label="司機" value={order.driver_name ?? "-"} />
-            <Row label="外縣市" value={order.out_of_county ? "是" : "否"} />
+            <Row label="外縣市" value={formatOutOfCounty(order)} />
             <Row label="價格" value={priceSummary(order)} />
             <Row
               label={order.status === "returned" ? "已回單日期" : "未回單日期"}
@@ -146,7 +152,7 @@ export default function OrderLookupView() {
                     {o.status ? <StatusBadge status={o.status} /> : "-"}
                   </td>
                   <td className="px-2 py-2">{o.driver_name ?? "-"}</td>
-                  <td className="px-2 py-2">{o.out_of_county ? "是" : "否"}</td>
+                  <td className="px-2 py-2">{formatOutOfCounty(o)}</td>
                   <td className="px-2 py-2 text-neutral-600">{priceSummary(o)}</td>
                   <td className="px-3 py-2">
                     {o.unreturned_date ? formatMinguoSlash(o.unreturned_date) : "-"}

@@ -16,6 +16,7 @@ export interface Order {
 
   driver_name: string | null;
   out_of_county: boolean;
+  out_of_county_count: number | null; // 外縣市件數
   order_price: number | null;
   cash_sale_price: number | null;
   invoice_price: number | null;
@@ -35,6 +36,7 @@ export type OrderInput = Pick<
   | "status"
   | "driver_name"
   | "out_of_county"
+  | "out_of_county_count"
   | "order_price"
   | "cash_sale_price"
   | "invoice_price"
@@ -45,6 +47,13 @@ export type OrderInput = Pick<
 
 export function formatOrderNumber(n: number): string {
   return String(n).padStart(4, "0");
+}
+
+export function formatOutOfCounty(
+  order: Pick<Order, "out_of_county" | "out_of_county_count">
+): string {
+  if (!order.out_of_county) return "否";
+  return order.out_of_county_count != null ? `是（${order.out_of_county_count}件）` : "是";
 }
 
 /** 民國年 MMDD，例如 2026-07-14 -> "1150714" */
