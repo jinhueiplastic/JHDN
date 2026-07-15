@@ -67,7 +67,7 @@ export default function OrderLookupView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-[864px] px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[1296px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">依單號查詢</h1>

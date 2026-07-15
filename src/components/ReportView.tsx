@@ -153,7 +153,7 @@ export default function ReportView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[648px] px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[1296px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">列印報表</h1>

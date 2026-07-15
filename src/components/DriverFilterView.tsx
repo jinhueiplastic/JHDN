@@ -90,7 +90,7 @@ export default function DriverFilterView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-[1152px] px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[1296px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">依司機查詢</h1>
