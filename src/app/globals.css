@@ -5,6 +5,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Bumps every rem-based Tailwind text size (text-xs, text-sm, ...)
+   proportionally site-wide, since they're all relative to this. */
+html {
+  font-size: 18px;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
