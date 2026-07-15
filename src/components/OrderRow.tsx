@@ -196,7 +196,7 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-col items-start gap-1">
           <select
             value={fieldOption}
             onChange={(e) => handleFieldOptionChange(e.target.value)}
