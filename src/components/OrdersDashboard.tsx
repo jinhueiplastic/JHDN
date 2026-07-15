@@ -395,7 +395,10 @@ export default function OrdersDashboard() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div
+        className="overflow-x-auto rounded-lg border border-neutral-200 bg-white"
+        style={{ overflowY: "visible" }}
+      >
         <div
           className="grid min-w-[900px] text-left text-sm"
           style={{ gridTemplateColumns }}
