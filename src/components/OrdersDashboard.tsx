@@ -235,6 +235,27 @@ export default function OrdersDashboard() {
     setSelectedIds(new Set());
   }
 
+  async function handleBulkReset() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (
+      !confirm(
+        `確定要把選取的 ${ids.length} 筆改回原始狀態嗎？（狀態、司機、外縣市、價格、未回單日期都會被清空）`
+      )
+    )
+      return;
+    await handleBulkUpdate({
+      status: null,
+      driver_name: null,
+      out_of_county: false,
+      order_price: null,
+      cash_sale_price: null,
+      invoice_price: null,
+      shipped_date: null,
+      unreturned_date: null,
+    });
+  }
+
   async function handleBulkDelete() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -366,7 +387,14 @@ export default function OrdersDashboard() {
             >
               設為非外縣市
             </button>
-  
+            <button
+              type="button"
+              onClick={() => void handleBulkReset()}
+              className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
+            >
+              設為原始狀態
+            </button>
+
             <button
               type="button"
               onClick={() => void handleBulkDelete()}
