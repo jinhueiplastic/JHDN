@@ -152,7 +152,11 @@ export default function OrdersDashboard() {
   );
 
   const nextAvailableNumber = useMemo(() => {
-    if (orders.length === 0) return 1;
+    // No rows yet (e.g. a Sunday, which no longer auto-provisions) still
+    // assumes the usual 200-slot day as the baseline, so batch-create
+    // starts right after where the daily auto-provisioning would have
+    // left off instead of starting from 1.
+    if (orders.length === 0) return TOTAL_ORDER_NUMBERS + 1;
     const maxNumber = Math.max(...orders.map((o) => o.order_number));
     return Math.min(maxNumber + 1, MAX_ORDER_NUMBER);
   }, [orders]);
