@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatOrderNumber, Order, OrderInput } from "@/types/order";
+import { formatOrderNumber, Order, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -34,6 +34,7 @@ interface Props {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onUpdate: (order: Order, patch: Partial<OrderInput>) => Promise<void>;
+  onFilterJump: (status: OrderStatus) => void;
   onDelete: (order: Order) => void;
 }
 
@@ -46,6 +47,7 @@ export default function OrderRow({
   selected,
   onToggleSelect,
   onUpdate,
+  onFilterJump,
   onDelete,
 }: Props) {
   const [fieldOption, setFieldOption] = useState<FieldOption | "">(currentFieldOption(order));
@@ -55,6 +57,7 @@ export default function OrderRow({
   const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
@@ -70,6 +73,7 @@ export default function OrderRow({
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await onUpdate(order, { driver_name: name, status: "returned" });
       setPendingDriver(null);
+      onFilterJump("returned");
       return;
     }
 
@@ -78,6 +82,16 @@ export default function OrderRow({
     if (!confirm(`確定要把司機改成「${name}」嗎？`)) return;
     await onUpdate(order, { driver_name: name });
     setEditingDriver(false);
+  }
+
+  async function handlePromote() {
+    // Same one-beat pause as the driver-pick transition, so the row's new
+    // badge is visible for a moment before it jumps away to the 未回單 tab.
+    setPromoting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await onUpdate(order, { status: "unreturned" });
+    setPromoting(false);
+    onFilterJump("unreturned");
   }
 
   function handleFieldOptionChange(next: string) {
@@ -135,8 +149,9 @@ export default function OrderRow({
         {order.status === null ? (
           <button
             type="button"
-            onClick={() => void onUpdate(order, { status: "unreturned" })}
-            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100"
+            disabled={promoting}
+            onClick={() => void handlePromote()}
+            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
           >
             未回單
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Order, ORDER_STATUS_LABEL, ORDER_STATUSES, OrderInput, OrderStatus } from "@/types/order";
 import { Driver } from "@/types/driver";
@@ -35,23 +35,11 @@ export default function OrdersDashboard() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(0);
 
   useEffect(() => {
     void loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderDate]);
-
-  useEffect(() => {
-    const el = toolbarRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      setToolbarHeight(entries[0].contentRect.height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     void loadDrivers();
@@ -255,19 +243,17 @@ export default function OrdersDashboard() {
   }
 
   // A real <table>'s <thead>/<th> renders out of place in some browsers, so
-  // header + every row share a single CSS Grid to keep columns aligned.
+  // header + every row share a single CSS Grid to keep columns aligned. The
+  // header grid lives inside the sticky toolbar itself (not sticky on its
+  // own with a measured offset) so it rides along glued to the title/tabs
+  // with zero gap, instead of needing its own top-offset math to stay in sync.
   const gridTemplateColumns =
     "2.5rem 5.5rem 6rem 4.5rem minmax(14rem,1fr) 13rem 7rem 4rem";
-  const thClass =
-    "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50 text-neutral-500";
-  const theadStickyStyle = { top: `${toolbarHeight}px` };
+  const thClass = "px-2 py-2 text-neutral-500";
 
   return (
     <div className="mx-auto w-full max-w-[1296px] px-4 pt-8 pb-8">
-      <div
-        ref={toolbarRef}
-        className="sticky top-0 z-30 -mx-4 bg-neutral-50 px-4 pb-2"
-      >
+      <div className="sticky top-0 z-30 -mx-4 bg-neutral-50 px-4 pb-2">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <NavMenu />
@@ -391,17 +377,12 @@ export default function OrdersDashboard() {
             </button>
           </div>
         )}
-      </div>
 
-      <div
-        className="overflow-x-auto rounded-lg border border-neutral-200 bg-white"
-        style={{ overflowY: "visible" }}
-      >
         <div
-          className="grid min-w-[900px] text-left text-sm"
+          className="grid min-w-[900px] rounded-t-lg border border-neutral-200 bg-neutral-50 text-left text-sm"
           style={{ gridTemplateColumns }}
         >
-          <div className={thClass} style={theadStickyStyle}>
+          <div className={thClass}>
             <input
               type="checkbox"
               checked={
@@ -412,16 +393,23 @@ export default function OrdersDashboard() {
               className="h-4 w-4 rounded border-neutral-300"
             />
           </div>
-          <div className={thClass} style={theadStickyStyle}>單號</div>
-          <div className={thClass} style={theadStickyStyle}>狀態</div>
-          <div className={thClass} style={theadStickyStyle}>外縣市</div>
-          <div className={thClass} style={theadStickyStyle}>司機</div>
-          <div className={thClass} style={theadStickyStyle}>價格</div>
-          <div className={thClass} style={theadStickyStyle}>
+          <div className={thClass}>單號</div>
+          <div className={thClass}>狀態</div>
+          <div className={thClass}>外縣市</div>
+          <div className={thClass}>司機</div>
+          <div className={thClass}>價格</div>
+          <div className={thClass}>
             {filter === "returned" ? "已回單日期" : "未回單日期"}
           </div>
-          <div className={thClass} style={theadStickyStyle}></div>
+          <div className={thClass}></div>
+        </div>
+      </div>
 
+      <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-white">
+        <div
+          className="grid min-w-[900px] text-left text-sm"
+          style={{ gridTemplateColumns }}
+        >
           {loading ? (
             <div
               style={{ gridColumn: "1 / -1" }}
@@ -445,6 +433,7 @@ export default function OrdersDashboard() {
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={toggleSelect}
                 onUpdate={handleUpdate}
+                onFilterJump={setFilter}
                 onDelete={handleDelete}
               />
             ))
