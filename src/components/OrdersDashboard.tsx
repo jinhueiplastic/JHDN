@@ -16,6 +16,13 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function shiftDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 type FilterTab = "all" | OrderStatus;
 
 export default function OrdersDashboard() {
@@ -232,7 +239,18 @@ export default function OrdersDashboard() {
     <div className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">出貨單管理</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setOrderDate(shiftDate(orderDate, -1));
+              setSelectedIds(new Set());
+            }}
+            aria-label="前一天"
+            className="rounded-md border border-neutral-300 px-2 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            ‹
+          </button>
           <input
             type="date"
             value={orderDate}
@@ -242,6 +260,17 @@ export default function OrdersDashboard() {
             }}
             className="input w-auto"
           />
+          <button
+            type="button"
+            onClick={() => {
+              setOrderDate(shiftDate(orderDate, 1));
+              setSelectedIds(new Set());
+            }}
+            aria-label="後一天"
+            className="rounded-md border border-neutral-300 px-2 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            ›
+          </button>
         </div>
       </div>
 
