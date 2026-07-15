@@ -24,12 +24,16 @@ export default function NavMenu() {
   }, []);
 
   return (
-    <div ref={ref} className="fixed top-4 left-4 z-40">
+    // Fixed pixel values (not the rem-based top-4/h-10 scale) so this stays
+    // put regardless of the site's root font-size — OrdersDashboard's sticky
+    // toolbar math assumes this exact pixel geometry and would drift out of
+    // sync otherwise.
+    <div ref={ref} className="fixed top-[16px] left-[16px] z-40">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="選單"
-        className="flex h-10 w-10 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
+        className="flex h-[40px] w-[40px] items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
       >
         <span className="text-lg leading-none">☰</span>
       </button>

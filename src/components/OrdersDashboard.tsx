@@ -12,6 +12,10 @@ const MAX_ORDER_NUMBER = 9999;
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
 
+// Fixed pixel clearance to sit below NavMenu's fixed hamburger button
+// (top:16px + height:40px = 56px), independent of root font-size.
+const NAV_CLEARANCE_PX = 64;
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -250,13 +254,14 @@ export default function OrdersDashboard() {
   }
 
   const thClass = "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50";
-  const theadStickyStyle = { top: `${64 + toolbarHeight}px` };
+  const theadStickyStyle = { top: `${NAV_CLEARANCE_PX + toolbarHeight}px` };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8">
       <div
         ref={toolbarRef}
-        className="sticky top-16 z-30 -mx-4 bg-neutral-50 px-4 pb-2"
+        className="sticky z-30 -mx-4 bg-neutral-50 px-4 pb-2"
+        style={{ top: `${NAV_CLEARANCE_PX}px` }}
       >
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-xl font-semibold">出貨單管理</h1>
