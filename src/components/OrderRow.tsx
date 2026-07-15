@@ -6,6 +6,7 @@ import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 
 type PriceField = "order_price" | "cash_sale_price" | "invoice_price";
+type FieldOption = PriceField | "shipped_date";
 
 const PRICE_LABELS: Record<PriceField, string> = {
   order_price: "填單價",
@@ -13,10 +14,13 @@ const PRICE_LABELS: Record<PriceField, string> = {
   invoice_price: "發票金額",
 };
 
-function currentPriceType(order: Order): PriceField | "" {
+const CELL = "border-b border-neutral-100 px-2 py-2";
+
+function currentFieldOption(order: Order): FieldOption | "" {
   if (order.order_price != null) return "order_price";
   if (order.cash_sale_price != null) return "cash_sale_price";
   if (order.invoice_price != null) return "invoice_price";
+  if (order.shipped_date != null) return "shipped_date";
   return "";
 }
 
@@ -44,8 +48,10 @@ export default function OrderRow({
   onUpdate,
   onDelete,
 }: Props) {
-  const [priceType, setPriceType] = useState<PriceField | "">(currentPriceType(order));
-  const [priceValue, setPriceValue] = useState(priceType ? (order[priceType]?.toString() ?? "") : "");
+  const [fieldOption, setFieldOption] = useState<FieldOption | "">(currentFieldOption(order));
+  const [priceValue, setPriceValue] = useState(
+    fieldOption && fieldOption !== "shipped_date" ? (order[fieldOption]?.toString() ?? "") : ""
+  );
   const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
@@ -74,27 +80,27 @@ export default function OrderRow({
     setEditingDriver(false);
   }
 
-  function handlePriceTypeChange(next: string) {
-    const nextType = next as PriceField | "";
-    setPriceType(nextType);
-    setPriceValue("");
+  function handleFieldOptionChange(next: string) {
+    const nextOption = next as FieldOption | "";
+    setFieldOption(nextOption);
 
-    // First time a price type is picked for this row, default the actual
-    // shipping date to today (still editable afterwards).
-    if (nextType && !order.shipped_date) {
-      const today = todayStr();
-      setShippedDate(today);
-      void onUpdate(order, { shipped_date: today });
+    if (nextOption === "shipped_date") {
+      // Picking 實際出貨日 defaults it to today right away (still editable).
+      const value = order.shipped_date || todayStr();
+      setShippedDate(value);
+      if (!order.shipped_date) void onUpdate(order, { shipped_date: value });
+    } else {
+      setPriceValue(nextOption ? (order[nextOption]?.toString() ?? "") : "");
     }
   }
 
   function commitPriceValue(raw: string) {
-    if (!priceType) return;
+    if (!fieldOption || fieldOption === "shipped_date") return;
     const parsed = raw === "" ? null : Number(raw);
     void onUpdate(order, {
-      order_price: priceType === "order_price" ? parsed : null,
-      cash_sale_price: priceType === "cash_sale_price" ? parsed : null,
-      invoice_price: priceType === "invoice_price" ? parsed : null,
+      order_price: fieldOption === "order_price" ? parsed : null,
+      cash_sale_price: fieldOption === "cash_sale_price" ? parsed : null,
+      invoice_price: fieldOption === "invoice_price" ? parsed : null,
     });
   }
 
@@ -107,55 +113,66 @@ export default function OrderRow({
     order.order_price != null && `填單價 ${order.order_price}`,
     order.cash_sale_price != null && `現銷價 ${order.cash_sale_price}`,
     order.invoice_price != null && `發票 ${order.invoice_price}`,
+    order.shipped_date != null && `出貨日 ${order.shipped_date}`,
   ].filter(Boolean);
 
   return (
-    <tr className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-      <td className="px-3 py-2">
+    <>
+      <div className={CELL}>
         <input
           type="checkbox"
           checked={selected}
           onChange={() => onToggleSelect(order.id)}
           className="h-4 w-4 rounded border-neutral-300"
         />
-      </td>
+      </div>
 
-      <td className="whitespace-nowrap px-3 py-2 font-mono text-lg font-semibold">
+      <div className={`${CELL} whitespace-nowrap font-mono text-lg font-semibold`}>
         {formatOrderNumber(order.order_number)}
-      </td>
+      </div>
 
-      <td className="px-2 py-2">
-        <div className="flex flex-col items-start gap-1">
-          <StatusBadge status={order.status} />
-          {isReturned && (
-            <button
-              type="button"
-              onClick={() => void onUpdate(order, { status: "unreturned" })}
-              className="text-xs text-neutral-400 hover:underline"
-            >
-              改回未回單
-            </button>
-          )}
-        </div>
-      </td>
+      <div className={CELL}>
+        {order.status === null ? (
+          <button
+            type="button"
+            onClick={() => void onUpdate(order, { status: "unreturned" })}
+            className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100"
+          >
+            未回單
+          </button>
+        ) : (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={order.status} />
+            {isReturned && (
+              <button
+                type="button"
+                onClick={() => void onUpdate(order, { status: "unreturned" })}
+                className="text-xs text-neutral-400 hover:underline"
+              >
+                改回未回單
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-      <td className="px-2 py-2 text-center">
+      <div className={`${CELL} text-center`}>
         <input
           type="checkbox"
           checked={order.out_of_county}
-          disabled={isReturned}
+          disabled={!isUnreturned}
           onChange={(e) => void onUpdate(order, { out_of_county: e.target.checked })}
           className="h-4 w-4 rounded border-neutral-300"
         />
-      </td>
+      </div>
 
-      <td className="px-2 py-2">
+      <div className={CELL}>
         <div className="flex max-w-[280px] flex-wrap gap-2">
           {drivers.map((d) => (
             <button
               type="button"
               key={d.id}
-              disabled={(isReturned && !editingDriver) || pendingDriver !== null}
+              disabled={(!isUnreturned && !editingDriver) || pendingDriver !== null}
               onClick={() => void handleDriverSelect(d.name)}
               className={`rounded-full border px-3 py-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
                 displayedDriver === d.name
@@ -170,31 +187,41 @@ export default function OrderRow({
             <span className="text-xs text-neutral-400">請先到下面新增司機</span>
           )}
         </div>
-      </td>
+      </div>
 
-      <td className="px-2 py-2">
+      <div className={CELL}>
         {isUnreturned ? (
           <div className="flex items-center gap-1">
             <select
-              value={priceType}
-              onChange={(e) => handlePriceTypeChange(e.target.value)}
+              value={fieldOption}
+              onChange={(e) => handleFieldOptionChange(e.target.value)}
               className="input py-1 text-sm"
             >
               <option value="">(未選擇)</option>
               <option value="order_price">填單價</option>
               <option value="cash_sale_price">現銷價</option>
               <option value="invoice_price">發票金額</option>
+              <option value="shipped_date">實際出貨日</option>
             </select>
-            {priceType && (
+            {fieldOption === "shipped_date" ? (
               <input
-                type="number"
-                step="0.01"
-                value={priceValue}
-                onChange={(e) => setPriceValue(e.target.value)}
-                onBlur={(e) => commitPriceValue(e.target.value)}
-                placeholder={PRICE_LABELS[priceType]}
-                className="input w-20 py-1 text-sm"
+                type="date"
+                value={shippedDate}
+                onChange={(e) => commitShippedDate(e.target.value)}
+                className="input w-32 py-1 text-sm"
               />
+            ) : (
+              fieldOption && (
+                <input
+                  type="number"
+                  step="0.01"
+                  value={priceValue}
+                  onChange={(e) => setPriceValue(e.target.value)}
+                  onBlur={(e) => commitPriceValue(e.target.value)}
+                  placeholder={PRICE_LABELS[fieldOption]}
+                  className="input w-20 py-1 text-sm"
+                />
+              )
             )}
           </div>
         ) : (
@@ -202,24 +229,11 @@ export default function OrderRow({
             {priceSummary.length > 0 ? priceSummary.join("、") : "-"}
           </span>
         )}
-      </td>
+      </div>
 
-      <td className="px-2 py-2">
-        {isUnreturned && priceType ? (
-          <input
-            type="date"
-            value={shippedDate}
-            onChange={(e) => commitShippedDate(e.target.value)}
-            className="input py-1 text-sm"
-          />
-        ) : (
-          <span className="text-neutral-500">{order.shipped_date ?? "-"}</span>
-        )}
-      </td>
+      <div className={CELL}>{order.unreturned_date ?? "-"}</div>
 
-      <td className="px-3 py-2">{order.unreturned_date ?? "-"}</td>
-
-      <td className="px-3 py-2">
+      <div className={CELL}>
         {isReturned ? (
           <button
             type="button"
@@ -237,7 +251,7 @@ export default function OrderRow({
             刪除
           </button>
         )}
-      </td>
-    </tr>
+      </div>
+    </>
   );
 }

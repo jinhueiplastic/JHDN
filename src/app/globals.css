@@ -8,7 +8,7 @@
 /* Bumps every rem-based Tailwind text size (text-xs, text-sm, ...)
    proportionally site-wide, since they're all relative to this. */
 html {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 body {

@@ -90,7 +90,7 @@ export default function DriverFilterView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[1152px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">依司機查詢</h1>
@@ -194,7 +194,7 @@ export default function DriverFilterView() {
                       {formatOrderNumber(o.order_number)}
                     </td>
                     <td className="px-2 py-2">
-                      <StatusBadge status={o.status} />
+                      {o.status ? <StatusBadge status={o.status} /> : "-"}
                     </td>
                     <td className="px-2 py-2">{o.out_of_county ? "是" : "否"}</td>
                     <td className="px-2 py-2 text-neutral-600">{priceSummary(o)}</td>

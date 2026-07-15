@@ -9,7 +9,7 @@ export default function Home() {
       <div className="p-4">
         <NavMenu />
       </div>
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 pb-16">
+      <div className="mx-auto flex w-full max-w-[504px] flex-1 flex-col items-center justify-center gap-6 px-4 pb-16">
         <h1 className="text-2xl font-semibold">JHDN 出貨單管理</h1>
         <div className="flex w-full flex-col gap-3">
           <Link

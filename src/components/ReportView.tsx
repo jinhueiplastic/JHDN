@@ -114,7 +114,7 @@ export default function ReportView() {
         const row = sheet.addRow([
           o.order_date,
           formatOrderNumber(o.order_number),
-          ORDER_STATUS_LABEL[o.status],
+          o.status ? ORDER_STATUS_LABEL[o.status] : "沒有狀態",
           o.driver_name ?? "",
           o.out_of_county ? "是" : "否",
           orderPrice,
@@ -153,7 +153,7 @@ export default function ReportView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[648px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">列印報表</h1>

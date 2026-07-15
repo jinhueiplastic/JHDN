@@ -11,7 +11,7 @@ export interface Order {
   id: string;
   order_date: string; // YYYY-MM-DD
   order_number: number; // 1-300, display zero-padded
-  status: OrderStatus;
+  status: OrderStatus | null; // null = 新進來還沒設定狀態
 
   driver_name: string | null;
   out_of_county: boolean;

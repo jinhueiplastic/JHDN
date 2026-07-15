@@ -67,7 +67,7 @@ export default function OrderLookupView() {
       .join("、") || "-";
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[864px] px-4 pt-8 pb-8">
       <div className="mb-6 flex items-center gap-3">
         <NavMenu />
         <h1 className="text-xl font-semibold">依單號查詢</h1>
@@ -105,7 +105,7 @@ export default function OrderLookupView() {
             <span className="font-mono text-2xl font-semibold">
               {formatOrderNumber(order.order_number)}
             </span>
-            <StatusBadge status={order.status} />
+            {order.status ? <StatusBadge status={order.status} /> : <span className="text-sm text-neutral-400">-</span>}
           </div>
           <dl className="space-y-2 text-sm">
             <Row label="日期" value={order.order_date} />
@@ -143,7 +143,7 @@ export default function OrderLookupView() {
                     {formatOrderNumber(o.order_number)}
                   </td>
                   <td className="px-2 py-2">
-                    <StatusBadge status={o.status} />
+                    {o.status ? <StatusBadge status={o.status} /> : "-"}
                   </td>
                   <td className="px-2 py-2">{o.driver_name ?? "-"}</td>
                   <td className="px-2 py-2">{o.out_of_county ? "是" : "否"}</td>

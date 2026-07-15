@@ -31,6 +31,7 @@ npm run dev
    - [`supabase/migrations/0007_daily_order_provisioning.sql`](./supabase/migrations/0007_daily_order_provisioning.sql)（每天凌晨 00:01 台北時間自動建立當天 300 個單號，見下面第 3 節）
    - [`supabase/migrations/0008_raise_order_number_limit.sql`](./supabase/migrations/0008_raise_order_number_limit.sql)（單號上限從 300 提高到 9999，給批次新增超過 300 號用）
    - [`supabase/migrations/0009_shipped_date.sql`](./supabase/migrations/0009_shipped_date.sql)（新增「實際出貨日」欄位）
+   - [`supabase/migrations/0010_status_defaults_to_none.sql`](./supabase/migrations/0010_status_defaults_to_none.sql)（新單號預設沒有狀態，見下面第 3 節）
 3. 每個都依序 Run 一次即可（之後改版只要新增新的 migration 檔案，重新貼上執行）
 
 資料表 `JHDN_orders` 結構（一列 = 一個日期 + 一個單號）：
@@ -39,32 +40,37 @@ npm run dev
 |---|---|---|
 | `order_date` | date | 日期 |
 | `order_number` | smallint (1-9999) | 單號，畫面上會補零顯示成 0001-9999 |
-| `status` | text | `unreturned`(未回單，預設) / `returned`(已回單) |
+| `status` | text，可為 null | null(新單號預設，沒有狀態) / `unreturned`(未回單) / `returned`(已回單) |
 | `driver_name` | text | 司機姓名 |
 | `out_of_county` | boolean | 是否外縣市 |
 | `order_price` | numeric | 填單價（跟現銷價、發票金額三選一） |
 | `cash_sale_price` | numeric | 當日現銷價錢 |
 | `invoice_price` | numeric | 有開發票的價錢 |
-| `shipped_date` | date | 實際出貨日，選了價格類型後第一次自動填今天，之後可自行更改 |
-| `unreturned_date` | date | 這筆單號建立/標記未回單當下自動記錄的日期 |
+| `shipped_date` | date | 實際出貨日，「價格」欄的下拉選單第 4 個選項，選了自動填今天，之後可自行更改 |
+| `unreturned_date` | date | 標記未回單/確認已回單當下自動記錄的日期 |
 | `created_at` / `updated_at` | timestamptz | 自動填寫 |
 
 ## 3. 網站功能對照需求
 
-- **未回單**（新建立單號的預設狀態）：可點選司機姓名、勾選外縣市、選擇價格類型
-  （填單價／現銷價／發票金額三選一）並填入金額；建立時自動記錄 `unreturned_date`
+- **（新單號預設）沒有狀態**：只在「全部」分頁看得到，狀態欄只有一個「未回單」按鈕，
+  按下去才會正式轉成未回單狀態，其他欄位（司機、外縣市、價格）在這之前都是鎖住的
+- **未回單**：可點選司機姓名、勾選外縣市；「價格」欄下拉選單有 4 個選項——填單價、
+  現銷價、發票金額（三選一）、實際出貨日（選了會跳出日期，預設今天，可自行更改）；
+  轉成未回單當下自動記錄 `unreturned_date`
 - **已回單**：點選司機姓名會把這筆從未回單自動轉成已回單（代表司機的單已經回來了），
   這個狀態下司機姓名、外縣市、價格都唯讀顯示，如果點錯了可以用「改回未回單」修正；
   `unreturned_date` 這欄位在已回單頁面會改標示成「已回單日期」，記錄確認回單的日期
 
-畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選；每一列直接在表格上編輯，
-不需要另外開視窗。頁面最下方有「+ 批次新增單號」，平常用不到（每天會自動建好
-0001-0300），只有某一天需要超過 300 號時才用這個手動補上去（可以填到 9999）。
+畫面上方可依日期查詢、依狀態（全部/未回單/已回單）篩選，預設打開「全部」；每一列
+直接在表格上編輯，不需要另外開視窗。頁面最下方有「+ 批次新增單號」，平常用不到
+（每天會自動建好 0001-0300），只有某一天需要超過 300 號時才用這個手動補上去
+（可以填到 9999）。
 
 當天的 300 個單號不用等有人打開網站才建立——Supabase 有一個排程（`pg_cron`），
-每天台北時間 00:01 自動建立好，這樣 Google Sheet 那邊也有時間在大家開始上班前
-先同步完（見下面第 4 節同步佇列的說明）。網站上原本「選到還沒建立過的日期就自動
-建立 300 筆」的邏輯還在，當備援用（例如排程萬一沒跑成功）。
+每天台北時間 00:01 自動建立好（沒有狀態，跟手動建立的一樣），這樣 Google Sheet
+那邊也有時間在大家開始上班前先同步完（見下面第 4 節同步佇列的說明）。網站上原本
+「選到還沒建立過的日期就自動建立 300 筆」的邏輯還在，當備援用（例如排程萬一沒跑
+成功）。
 
 ## 網站頁面
 

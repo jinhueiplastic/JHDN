@@ -31,7 +31,7 @@ export default function OrdersDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterTab>("unreturned");
+  const [filter, setFilter] = useState<FilterTab>("all");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
@@ -69,14 +69,14 @@ export default function OrdersDashboard() {
     return {
       order_date: orderDate,
       order_number: n,
-      status: "unreturned",
+      status: null,
       driver_name: null,
       out_of_county: false,
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
       shipped_date: null,
-      unreturned_date: orderDate,
+      unreturned_date: null,
     };
   }
 
@@ -131,7 +131,9 @@ export default function OrdersDashboard() {
       returned: 0,
       unreturned: 0,
     };
-    for (const o of orders) c[o.status]++;
+    for (const o of orders) {
+      if (o.status) c[o.status]++;
+    }
     return c;
   }, [orders]);
 
@@ -252,11 +254,18 @@ export default function OrdersDashboard() {
     setSelectedIds(new Set());
   }
 
-  const thClass = "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50";
+  // A real <table>'s <thead>/<th> combined with position:sticky is
+  // unreliable across browsers (headers can render out of place). Using a
+  // single CSS Grid for header + every row instead — sticky works reliably
+  // on plain block elements, and one shared grid keeps all columns aligned.
+  const gridTemplateColumns =
+    "2.5rem 5.5rem 6rem 4.5rem minmax(14rem,1fr) 13rem 7rem 4rem";
+  const thClass =
+    "px-2 py-2 sticky z-20 border-b border-neutral-200 bg-neutral-50 text-neutral-500";
   const theadStickyStyle = { top: `${toolbarHeight}px` };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-8 pb-8">
+    <div className="mx-auto w-full max-w-[1296px] px-4 pt-8 pb-8">
       <div
         ref={toolbarRef}
         className="sticky top-0 z-30 -mx-4 bg-neutral-50 px-4 pb-2"
@@ -302,14 +311,14 @@ export default function OrdersDashboard() {
         </div>
   
         <div className="mb-4 flex gap-2">
+          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+            全部 ({counts.all})
+          </FilterButton>
           {ORDER_STATUSES.map((s) => (
             <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
               {ORDER_STATUS_LABEL[s]} ({counts[s]})
             </FilterButton>
           ))}
-          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-            全部 ({counts.all})
-          </FilterButton>
         </div>
   
         {error && (
@@ -387,60 +396,59 @@ export default function OrdersDashboard() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="text-neutral-500">
-            <tr>
-              <th className={thClass} style={theadStickyStyle}>
-                <input
-                  type="checkbox"
-                  checked={
-                    visibleOrders.length > 0 &&
-                    visibleOrders.every((o) => selectedIds.has(o.id))
-                  }
-                  onChange={toggleSelectAllVisible}
-                  className="h-4 w-4 rounded border-neutral-300"
-                />
-              </th>
-              <th className={thClass} style={theadStickyStyle}>單號</th>
-              <th className={thClass} style={theadStickyStyle}>狀態</th>
-              <th className={thClass} style={theadStickyStyle}>外縣市</th>
-              <th className={thClass} style={theadStickyStyle}>司機</th>
-              <th className={thClass} style={theadStickyStyle}>價格</th>
-              <th className={thClass} style={theadStickyStyle}>實際出貨日</th>
-              <th className={thClass} style={theadStickyStyle}>
-                {filter === "returned" ? "已回單日期" : "未回單日期"}
-              </th>
-              <th className={thClass} style={theadStickyStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
-                  載入中…
-                </td>
-              </tr>
-            ) : visibleOrders.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-neutral-400">
-                  這一天還沒有資料
-                </td>
-              </tr>
-            ) : (
-              visibleOrders.map((o) => (
-                <OrderRow
-                  key={o.id}
-                  order={o}
-                  drivers={drivers}
-                  selected={selectedIds.has(o.id)}
-                  onToggleSelect={toggleSelect}
-                  onUpdate={handleUpdate}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+        <div
+          className="grid min-w-[900px] text-left text-sm"
+          style={{ gridTemplateColumns }}
+        >
+          <div className={thClass} style={theadStickyStyle}>
+            <input
+              type="checkbox"
+              checked={
+                visibleOrders.length > 0 &&
+                visibleOrders.every((o) => selectedIds.has(o.id))
+              }
+              onChange={toggleSelectAllVisible}
+              className="h-4 w-4 rounded border-neutral-300"
+            />
+          </div>
+          <div className={thClass} style={theadStickyStyle}>單號</div>
+          <div className={thClass} style={theadStickyStyle}>狀態</div>
+          <div className={thClass} style={theadStickyStyle}>外縣市</div>
+          <div className={thClass} style={theadStickyStyle}>司機</div>
+          <div className={thClass} style={theadStickyStyle}>價格</div>
+          <div className={thClass} style={theadStickyStyle}>
+            {filter === "returned" ? "已回單日期" : "未回單日期"}
+          </div>
+          <div className={thClass} style={theadStickyStyle}></div>
+
+          {loading ? (
+            <div
+              style={{ gridColumn: "1 / -1" }}
+              className="px-4 py-6 text-center text-neutral-400"
+            >
+              載入中…
+            </div>
+          ) : visibleOrders.length === 0 ? (
+            <div
+              style={{ gridColumn: "1 / -1" }}
+              className="px-4 py-6 text-center text-neutral-400"
+            >
+              這一天還沒有資料
+            </div>
+          ) : (
+            visibleOrders.map((o) => (
+              <OrderRow
+                key={o.id}
+                order={o}
+                drivers={drivers}
+                selected={selectedIds.has(o.id)}
+                onToggleSelect={toggleSelect}
+                onUpdate={handleUpdate}
+                onDelete={handleDelete}
+              />
+            ))
+          )}
+        </div>
       </div>
 
       <div className="mt-8 flex justify-center">
