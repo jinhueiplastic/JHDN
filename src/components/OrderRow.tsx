@@ -70,6 +70,11 @@ export default function OrderRow({
   const [reasonValue, setReasonValue] = useState(order.out_of_county_reason ?? "");
   const [feeValue, setFeeValue] = useState(order.out_of_county_fee?.toString() ?? "");
   const [unreturnedDateValue, setUnreturnedDateValue] = useState(order.unreturned_date ?? "");
+  const [editingOutOfCounty, setEditingOutOfCounty] = useState(
+    order.out_of_county_reason == null &&
+      order.out_of_county_count == null &&
+      order.out_of_county_fee == null
+  );
   const countInputRef = useRef<HTMLInputElement>(null);
   const feeInputRef = useRef<HTMLInputElement>(null);
   const [editingDriver, setEditingDriver] = useState(false);
@@ -179,6 +184,7 @@ export default function OrderRow({
       setReasonValue("");
       setFeeValue("");
     }
+    setEditingOutOfCounty(checked);
     void onUpdate(order, {
       out_of_county: checked,
       out_of_county_count: checked ? order.out_of_county_count : null,
@@ -188,13 +194,15 @@ export default function OrderRow({
   }
 
   // 原因/件數/運費 stage locally and only commit together when "儲存" is
-  // clicked, so typing doesn't get half-saved on an accidental blur.
-  function commitOutOfCountyDetails() {
-    void onUpdate(order, {
+  // clicked, so typing doesn't get half-saved on an accidental blur. Once
+  // saved, switch to plain text so it's visibly clear the value stuck.
+  async function commitOutOfCountyDetails() {
+    await onUpdate(order, {
       out_of_county_reason: reasonValue.trim() === "" ? null : reasonValue,
       out_of_county_count: countValue.trim() === "" ? null : Number(countValue),
       out_of_county_fee: feeValue.trim() === "" ? null : Number(feeValue),
     });
+    setEditingOutOfCounty(false);
   }
 
   function commitUnreturnedDate(value: string) {
@@ -247,72 +255,87 @@ export default function OrderRow({
             onChange={(e) => handleOutOfCountyToggle(e.target.checked)}
             className="h-4 w-4 rounded border-neutral-300"
           />
-          {order.out_of_county && (
-            <>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-neutral-400">原因:</span>
-                <input
-                  type="text"
-                  value={reasonValue}
+          {order.out_of_county &&
+            (editingOutOfCounty ? (
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">原因:</span>
+                  <input
+                    type="text"
+                    value={reasonValue}
+                    disabled={isVoided}
+                    onChange={(e) => setReasonValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        countInputRef.current?.focus();
+                      }
+                    }}
+                    className="input w-28 py-0.5 text-xs disabled:opacity-60"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">件數:</span>
+                  <input
+                    ref={countInputRef}
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={countValue}
+                    disabled={isVoided}
+                    onChange={(e) => setCountValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        feeInputRef.current?.focus();
+                      }
+                    }}
+                    className="input w-20 py-0.5 text-xs disabled:opacity-60"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">運費:</span>
+                  <input
+                    ref={feeInputRef}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={feeValue}
+                    disabled={isVoided}
+                    onChange={(e) => setFeeValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void commitOutOfCountyDetails();
+                      }
+                    }}
+                    className="input w-20 py-0.5 text-xs disabled:opacity-60"
+                  />
+                </div>
+                <button
+                  type="button"
                   disabled={isVoided}
-                  onChange={(e) => setReasonValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      countInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-28 py-0.5 text-xs disabled:opacity-60"
-                />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-neutral-400">件數:</span>
-                <input
-                  ref={countInputRef}
-                  type="number"
-                  min={0}
-                  step="1"
-                  value={countValue}
+                  onClick={() => void commitOutOfCountyDetails()}
+                  className="rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+                >
+                  儲存
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-0.5 text-xs text-neutral-600">
+                <span>原因: {reasonValue || "-"}</span>
+                <span>件數: {countValue || "-"}</span>
+                <span>運費: {feeValue || "-"}</span>
+                <button
+                  type="button"
                   disabled={isVoided}
-                  onChange={(e) => setCountValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      feeInputRef.current?.focus();
-                    }
-                  }}
-                  className="input w-20 py-0.5 text-xs disabled:opacity-60"
-                />
+                  onClick={() => setEditingOutOfCounty(true)}
+                  className="text-neutral-400 hover:underline disabled:opacity-60"
+                >
+                  編輯
+                </button>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-neutral-400">運費:</span>
-                <input
-                  ref={feeInputRef}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={feeValue}
-                  disabled={isVoided}
-                  onChange={(e) => setFeeValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitOutOfCountyDetails();
-                    }
-                  }}
-                  className="input w-20 py-0.5 text-xs disabled:opacity-60"
-                />
-              </div>
-              <button
-                type="button"
-                disabled={isVoided}
-                onClick={commitOutOfCountyDetails}
-                className="rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
-              >
-                儲存
-              </button>
-            </>
-          )}
+            ))}
         </div>
       </div>
 
