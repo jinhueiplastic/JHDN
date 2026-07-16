@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
+  formatOrderNumber,
   Order,
   ORDER_STATUS_LABEL,
   ORDER_STATUSES,
@@ -36,7 +37,19 @@ function isSunday(dateStr: string): boolean {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
 }
 
-type FilterTab = "all" | OrderStatus;
+type FilterTab = "all" | OrderStatus | "needs_price" | "everything";
+
+// 未回單/已回單 (active, not voided) with none of the three price fields
+// filled in yet — still needs someone to pick a price type and fill it in.
+function needsPrice(o: Order): boolean {
+  return (
+    o.status !== null &&
+    o.status !== "voided" &&
+    o.order_price == null &&
+    o.cash_sale_price == null &&
+    o.invoice_price == null
+  );
+}
 
 export default function OrdersDashboard() {
   const [orderDate, setOrderDate] = useState(todayStr());
@@ -47,6 +60,7 @@ export default function OrdersDashboard() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [jumpValue, setJumpValue] = useState("");
 
   useEffect(() => {
     void loadOrders();
@@ -128,29 +142,31 @@ export default function OrdersDashboard() {
     setLoading(false);
   }
 
-  // "all" now means 未處理 (never-promoted, status === null) rather than
-  // literally every order — 未回單/已回單 are their own separate tabs.
+  // "all" means 未處理 (never-promoted, status === null); "everything" is
+  // the literal full list regardless of status.
   const counts = useMemo(() => {
     const c: Record<FilterTab, number> = {
       all: 0,
       returned: 0,
       unreturned: 0,
       voided: 0,
+      needs_price: 0,
+      everything: orders.length,
     };
     for (const o of orders) {
       if (o.status) c[o.status]++;
       else c.all++;
+      if (needsPrice(o)) c.needs_price++;
     }
     return c;
   }, [orders]);
 
-  const visibleOrders = useMemo(
-    () =>
-      filter === "all"
-        ? orders.filter((o) => o.status === null)
-        : orders.filter((o) => o.status === filter),
-    [orders, filter]
-  );
+  const visibleOrders = useMemo(() => {
+    if (filter === "all") return orders.filter((o) => o.status === null);
+    if (filter === "everything") return orders;
+    if (filter === "needs_price") return orders.filter(needsPrice);
+    return orders.filter((o) => o.status === filter);
+  }, [orders, filter]);
 
   const nextAvailableNumber = useMemo(() => {
     // No rows yet (e.g. a Sunday, which no longer auto-provisions) still
@@ -232,6 +248,24 @@ export default function OrdersDashboard() {
       if (allSelected) return new Set();
       return new Set(visibleOrders.map((o) => o.id));
     });
+  }
+
+  // Scrolls to a row already on the page instead of filtering the list down
+  // to it — everything else stays visible, this just jumps the viewport.
+  function handleJumpToOrder(e: React.FormEvent) {
+    e.preventDefault();
+    const num = parseInt(jumpValue, 10);
+    if (!num) return;
+
+    const el = document.getElementById(`order-row-${num}`);
+    if (!el) {
+      alert(`目前分頁找不到單號 ${formatOrderNumber(num)}`);
+      return;
+    }
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-amber-400");
+    setTimeout(() => el.classList.remove("ring-2", "ring-amber-400"), 1500);
   }
 
   async function handleBulkUpdate(patch: Partial<OrderInput>) {
@@ -334,17 +368,44 @@ export default function OrdersDashboard() {
           </div>
         </div>
   
-        <div className="mb-4 flex gap-2">
-          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-            未處理 ({counts.all})
-          </FilterButton>
-          {ORDER_STATUSES.map((s) => (
-            <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
-              {ORDER_STATUS_LABEL[s]} ({counts[s]})
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+              未處理 ({counts.all})
             </FilterButton>
-          ))}
+            {ORDER_STATUSES.map((s) => (
+              <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
+                {ORDER_STATUS_LABEL[s]} ({counts[s]})
+              </FilterButton>
+            ))}
+            <FilterButton
+              active={filter === "needs_price"}
+              onClick={() => setFilter("needs_price")}
+            >
+              填單價 ({counts.needs_price})
+            </FilterButton>
+            <FilterButton active={filter === "everything"} onClick={() => setFilter("everything")}>
+              全部 ({counts.everything})
+            </FilterButton>
+          </div>
+          <form onSubmit={handleJumpToOrder} className="flex items-center gap-1">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={jumpValue}
+              onChange={(e) => setJumpValue(e.target.value)}
+              placeholder="跳到單號"
+              className="input w-24 py-1 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+            >
+              跳到
+            </button>
+          </form>
         </div>
-  
+
         {error && (
           <p className="mb-4 rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
         )}

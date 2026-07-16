@@ -58,6 +58,7 @@ export default function OrderRow({
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [voidModalOpen, setVoidModalOpen] = useState(false);
+  const [reverting, setReverting] = useState(false);
 
   const isReturned = order.status === "returned";
   const isUnreturned = order.status === "unreturned";
@@ -99,6 +100,13 @@ export default function OrderRow({
     setPromoting(false);
   }
 
+  async function handleRevertToUnreturned() {
+    setReverting(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await onUpdate(order, { status: "unreturned" });
+    setReverting(false);
+  }
+
   function handleFieldOptionChange(next: string) {
     const nextOption = next as FieldOption | "";
     setFieldOption(nextOption);
@@ -128,6 +136,18 @@ export default function OrderRow({
     void onUpdate(order, { shipped_date: value || null });
   }
 
+  // On a settled 已回單 row, price edits stage locally and only commit when
+  // "儲存" is clicked — unlike other statuses, which auto-save as you type.
+  function handleShippedDateChange(value: string) {
+    if (isReturned) setShippedDate(value);
+    else commitShippedDate(value);
+  }
+
+  function commitFieldOption() {
+    if (fieldOption === "shipped_date") void onUpdate(order, { shipped_date: shippedDate || null });
+    else if (fieldOption) commitPriceValue(priceValue);
+  }
+
   function handleOutOfCountyToggle(checked: boolean) {
     if (!checked) setCountValue("");
     void onUpdate(order, {
@@ -152,7 +172,10 @@ export default function OrderRow({
         />
       </div>
 
-      <div className={`${CELL} whitespace-nowrap font-mono text-lg font-semibold`}>
+      <div
+        id={`order-row-${order.order_number}`}
+        className={`${CELL} whitespace-nowrap font-mono text-lg font-semibold`}
+      >
         {formatOrderNumber(order.order_number)}
       </div>
 
@@ -163,8 +186,9 @@ export default function OrderRow({
             {isReturned && (
               <button
                 type="button"
-                onClick={() => void onUpdate(order, { status: "unreturned" })}
-                className="text-xs text-neutral-400 hover:underline"
+                disabled={reverting}
+                onClick={() => void handleRevertToUnreturned()}
+                className="text-xs text-neutral-400 hover:underline disabled:opacity-60"
               >
                 改回未回單
               </button>
@@ -250,7 +274,7 @@ export default function OrderRow({
           {fieldOption === "shipped_date" ? (
             <MinguoDateInput
               value={shippedDate}
-              onChange={commitShippedDate}
+              onChange={handleShippedDateChange}
               disabled={isVoided}
               className="w-32 py-1 text-sm"
             />
@@ -262,11 +286,22 @@ export default function OrderRow({
                 value={priceValue}
                 disabled={isVoided}
                 onChange={(e) => setPriceValue(e.target.value)}
-                onBlur={(e) => commitPriceValue(e.target.value)}
+                onBlur={(e) => {
+                  if (!isReturned) commitPriceValue(e.target.value);
+                }}
                 placeholder={PRICE_LABELS[fieldOption]}
                 className="input w-20 py-1 text-sm disabled:opacity-60"
               />
             )
+          )}
+          {isReturned && fieldOption && (
+            <button
+              type="button"
+              onClick={commitFieldOption}
+              className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+            >
+              儲存
+            </button>
           )}
         </div>
       </div>
