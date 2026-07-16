@@ -6,7 +6,6 @@ import {
   formatOrderNumber,
   Order,
   ORDER_STATUS_LABEL,
-  ORDER_STATUSES,
   OrderInput,
   OrderStatus,
 } from "@/types/order";
@@ -99,6 +98,7 @@ export default function OrdersDashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
+  const [showMoreTabs, setShowMoreTabs] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const scrollRestoredRef = useRef(false);
 
@@ -111,7 +111,12 @@ export default function OrdersDashboard() {
     const savedFilter = localStorage.getItem(FILTER_STORAGE_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (savedDate) setOrderDate(savedDate);
-    if (savedFilter && isValidFilterTab(savedFilter)) setFilter(savedFilter);
+    if (savedFilter && isValidFilterTab(savedFilter)) {
+      setFilter(savedFilter);
+      // Keep the tucked-away 作廢/全部 tabs expanded if that's where the
+      // user was, so their active tab isn't hidden behind "..." on reload.
+      if (savedFilter === "voided" || savedFilter === "everything") setShowMoreTabs(true);
+    }
     setHydrated(true);
   }, []);
 
@@ -476,27 +481,46 @@ export default function OrdersDashboard() {
         </div>
   
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
               未處理 ({counts.all})
             </FilterButton>
-            {ORDER_STATUSES.map((s) => (
-              <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
-                {ORDER_STATUS_LABEL[s]} ({counts[s]})
-              </FilterButton>
-            ))}
+            <FilterButton active={filter === "unreturned"} onClick={() => setFilter("unreturned")}>
+              {ORDER_STATUS_LABEL.unreturned} ({counts.unreturned})
+            </FilterButton>
+            <FilterButton active={filter === "returned"} onClick={() => setFilter("returned")}>
+              {ORDER_STATUS_LABEL.returned} ({counts.returned})
+            </FilterButton>
             <FilterButton
               active={filter === "needs_price"}
               onClick={() => setFilter("needs_price")}
             >
               填單價 ({counts.needs_price})
             </FilterButton>
-            <FilterButton active={filter === "everything"} onClick={() => setFilter("everything")}>
-              全部 ({counts.everything})
-            </FilterButton>
             <FilterButton active={filter === "needs_fee"} onClick={() => setFilter("needs_fee")}>
               填運費 ({counts.needs_fee})
             </FilterButton>
+            <button
+              type="button"
+              onClick={() => setShowMoreTabs((v) => !v)}
+              aria-label={showMoreTabs ? "收起更多分頁" : "更多分頁"}
+              className="rounded-full border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-50"
+            >
+              {showMoreTabs ? "‹" : "..."}
+            </button>
+            {showMoreTabs && (
+              <>
+                <FilterButton active={filter === "voided"} onClick={() => setFilter("voided")}>
+                  {ORDER_STATUS_LABEL.voided} ({counts.voided})
+                </FilterButton>
+                <FilterButton
+                  active={filter === "everything"}
+                  onClick={() => setFilter("everything")}
+                >
+                  全部 ({counts.everything})
+                </FilterButton>
+              </>
+            )}
           </div>
           <form onSubmit={handleJumpToOrder} className="flex items-center gap-1">
             <input
