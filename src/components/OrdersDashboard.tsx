@@ -86,6 +86,7 @@ export default function OrdersDashboard() {
       status: null,
       driver_name: null,
       out_of_county: false,
+      out_of_county_reason: null,
       out_of_county_count: null,
       order_price: null,
       cash_sale_price: null,
@@ -200,6 +201,7 @@ export default function OrdersDashboard() {
       status: order.status,
       driver_name: order.driver_name,
       out_of_county: order.out_of_county,
+      out_of_county_reason: order.out_of_county_reason,
       out_of_county_count: order.out_of_county_count,
       order_price: order.order_price,
       cash_sale_price: order.cash_sale_price,
@@ -294,6 +296,7 @@ export default function OrdersDashboard() {
       status: null,
       driver_name: null,
       out_of_county: false,
+      out_of_county_reason: null,
       out_of_county_count: null,
       order_price: null,
       cash_sale_price: null,
@@ -323,7 +326,7 @@ export default function OrdersDashboard() {
   // own with a measured offset) so it rides along glued to the title/tabs
   // with zero gap, instead of needing its own top-offset math to stay in sync.
   const gridTemplateColumns =
-    "2.5rem 5.5rem 6rem 4.5rem minmax(14rem,1fr) 13rem 7rem 4rem";
+    "2.5rem 5.5rem 6rem 11rem minmax(14rem,1fr) 13rem 7rem 4rem";
   const thClass = "px-2 py-2 text-neutral-500";
 
   return (
@@ -456,7 +459,13 @@ export default function OrdersDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => void handleBulkUpdate({ out_of_county: false, out_of_county_count: null })}
+              onClick={() =>
+                void handleBulkUpdate({
+                  out_of_county: false,
+                  out_of_county_reason: null,
+                  out_of_county_count: null,
+                })
+              }
               className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
             >
               設為非外縣市
@@ -487,7 +496,7 @@ export default function OrdersDashboard() {
         )}
 
         <div
-          className="grid min-w-[900px] rounded-t-lg border border-neutral-200 bg-neutral-50 text-left text-sm"
+          className="grid min-w-[970px] rounded-t-lg border border-neutral-200 bg-neutral-50 text-left text-sm"
           style={{ gridTemplateColumns }}
         >
           <div className={thClass}>
@@ -519,7 +528,7 @@ export default function OrdersDashboard() {
 
       <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-white">
         <div
-          className="grid min-w-[900px] text-left text-sm"
+          className="grid min-w-[970px] text-left text-sm"
           style={{ gridTemplateColumns }}
         >
           {loading ? (

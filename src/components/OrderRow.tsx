@@ -54,6 +54,7 @@ export default function OrderRow({
   );
   const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
   const [countValue, setCountValue] = useState(order.out_of_county_count?.toString() ?? "");
+  const [reasonValue, setReasonValue] = useState(order.out_of_county_reason ?? "");
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
@@ -149,16 +150,24 @@ export default function OrderRow({
   }
 
   function handleOutOfCountyToggle(checked: boolean) {
-    if (!checked) setCountValue("");
+    if (!checked) {
+      setCountValue("");
+      setReasonValue("");
+    }
     void onUpdate(order, {
       out_of_county: checked,
       out_of_county_count: checked ? order.out_of_county_count : null,
+      out_of_county_reason: checked ? order.out_of_county_reason : null,
     });
   }
 
   function commitCountValue(raw: string) {
     const parsed = raw.trim() === "" ? null : Number(raw);
     void onUpdate(order, { out_of_county_count: parsed });
+  }
+
+  function commitReasonValue(raw: string) {
+    void onUpdate(order, { out_of_county_reason: raw.trim() === "" ? null : raw });
   }
 
   return (
@@ -207,19 +216,32 @@ export default function OrderRow({
             className="h-4 w-4 rounded border-neutral-300"
           />
           {order.out_of_county && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-neutral-400">件數:</span>
-              <input
-                type="number"
-                min={0}
-                step="1"
-                value={countValue}
-                disabled={isVoided}
-                onChange={(e) => setCountValue(e.target.value)}
-                onBlur={(e) => commitCountValue(e.target.value)}
-                className="input w-14 py-0.5 text-xs disabled:opacity-60"
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-neutral-400">原因:</span>
+                <input
+                  type="text"
+                  value={reasonValue}
+                  disabled={isVoided}
+                  onChange={(e) => setReasonValue(e.target.value)}
+                  onBlur={(e) => commitReasonValue(e.target.value)}
+                  className="input w-28 py-0.5 text-xs disabled:opacity-60"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-neutral-400">件數:</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={countValue}
+                  disabled={isVoided}
+                  onChange={(e) => setCountValue(e.target.value)}
+                  onBlur={(e) => commitCountValue(e.target.value)}
+                  className="input w-20 py-0.5 text-xs disabled:opacity-60"
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
