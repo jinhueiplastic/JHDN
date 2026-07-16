@@ -365,6 +365,7 @@ export default function OrdersDashboard() {
     e.preventDefault();
     const num = parseInt(jumpValue, 10);
     if (!num) return;
+    setJumpValue("");
 
     const el = document.getElementById(`order-row-${num}`);
     if (!el) {
