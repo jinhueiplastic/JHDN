@@ -18,6 +18,8 @@ export interface Order {
   out_of_county: boolean;
   out_of_county_reason: string | null; // 外縣市原因
   out_of_county_count: number | null; // 外縣市件數
+  out_of_county_fee: number | null; // 外縣市運費
+  price_field_option: string | null; // 「價格」下拉選單記錄的選擇，跟實際有沒有填數字無關
   order_price: number | null;
   cash_sale_price: number | null;
   invoice_price: number | null;
@@ -39,6 +41,8 @@ export type OrderInput = Pick<
   | "out_of_county"
   | "out_of_county_reason"
   | "out_of_county_count"
+  | "out_of_county_fee"
+  | "price_field_option"
   | "order_price"
   | "cash_sale_price"
   | "invoice_price"
@@ -52,12 +56,16 @@ export function formatOrderNumber(n: number): string {
 }
 
 export function formatOutOfCounty(
-  order: Pick<Order, "out_of_county" | "out_of_county_reason" | "out_of_county_count">
+  order: Pick<
+    Order,
+    "out_of_county" | "out_of_county_reason" | "out_of_county_count" | "out_of_county_fee"
+  >
 ): string {
   if (!order.out_of_county) return "否";
   const parts = [
     order.out_of_county_reason || null,
     order.out_of_county_count != null ? `${order.out_of_county_count}件` : null,
+    order.out_of_county_fee != null ? `運費${order.out_of_county_fee}` : null,
   ].filter((p): p is string => p !== null);
   return parts.length > 0 ? `是（${parts.join("、")}）` : "是";
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { formatMinguoSlash, formatOrderNumber, Order, OrderInput } from "@/types/order";
+import { useRef, useState } from "react";
+import { formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 import MinguoDateInput from "@/components/MinguoDateInput";
@@ -18,7 +18,20 @@ const PRICE_LABELS: Record<PriceField, string> = {
 
 const CELL = "border-b border-neutral-100 px-2 py-2";
 
+function isFieldOption(value: string | null): value is FieldOption {
+  return (
+    value === "order_price" ||
+    value === "cash_sale_price" ||
+    value === "invoice_price" ||
+    value === "shipped_date"
+  );
+}
+
 function currentFieldOption(order: Order): FieldOption | "" {
+  // price_field_option is the source of truth (it survives even when no
+  // value has been filled in yet); fall back to inferring from whichever
+  // value is actually set, for rows saved before this column existed.
+  if (isFieldOption(order.price_field_option)) return order.price_field_option;
   if (order.order_price != null) return "order_price";
   if (order.cash_sale_price != null) return "cash_sale_price";
   if (order.invoice_price != null) return "invoice_price";
@@ -55,6 +68,10 @@ export default function OrderRow({
   const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
   const [countValue, setCountValue] = useState(order.out_of_county_count?.toString() ?? "");
   const [reasonValue, setReasonValue] = useState(order.out_of_county_reason ?? "");
+  const [feeValue, setFeeValue] = useState(order.out_of_county_fee?.toString() ?? "");
+  const [unreturnedDateValue, setUnreturnedDateValue] = useState(order.unreturned_date ?? "");
+  const countInputRef = useRef<HTMLInputElement>(null);
+  const feeInputRef = useRef<HTMLInputElement>(null);
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
@@ -112,13 +129,20 @@ export default function OrderRow({
     const nextOption = next as FieldOption | "";
     setFieldOption(nextOption);
 
+    // The dropdown choice itself is recorded right away regardless of
+    // whether a value gets filled in — this is what lets the 填單價 tab
+    // tell "picked 填單價 but left it blank" apart from "never touched it".
     if (nextOption === "shipped_date") {
       // Picking 實際出貨日 defaults it to today right away (still editable).
       const value = order.shipped_date || todayStr();
       setShippedDate(value);
-      if (!order.shipped_date) void onUpdate(order, { shipped_date: value });
+      void onUpdate(order, {
+        price_field_option: nextOption || null,
+        ...(!order.shipped_date ? { shipped_date: value } : {}),
+      });
     } else {
       setPriceValue(nextOption ? (order[nextOption]?.toString() ?? "") : "");
+      void onUpdate(order, { price_field_option: nextOption || null });
     }
   }
 
@@ -153,21 +177,29 @@ export default function OrderRow({
     if (!checked) {
       setCountValue("");
       setReasonValue("");
+      setFeeValue("");
     }
     void onUpdate(order, {
       out_of_county: checked,
       out_of_county_count: checked ? order.out_of_county_count : null,
       out_of_county_reason: checked ? order.out_of_county_reason : null,
+      out_of_county_fee: checked ? order.out_of_county_fee : null,
     });
   }
 
-  function commitCountValue(raw: string) {
-    const parsed = raw.trim() === "" ? null : Number(raw);
-    void onUpdate(order, { out_of_county_count: parsed });
+  // 原因/件數/運費 stage locally and only commit together when "儲存" is
+  // clicked, so typing doesn't get half-saved on an accidental blur.
+  function commitOutOfCountyDetails() {
+    void onUpdate(order, {
+      out_of_county_reason: reasonValue.trim() === "" ? null : reasonValue,
+      out_of_county_count: countValue.trim() === "" ? null : Number(countValue),
+      out_of_county_fee: feeValue.trim() === "" ? null : Number(feeValue),
+    });
   }
 
-  function commitReasonValue(raw: string) {
-    void onUpdate(order, { out_of_county_reason: raw.trim() === "" ? null : raw });
+  function commitUnreturnedDate(value: string) {
+    setUnreturnedDateValue(value);
+    void onUpdate(order, { unreturned_date: value || null });
   }
 
   return (
@@ -224,23 +256,61 @@ export default function OrderRow({
                   value={reasonValue}
                   disabled={isVoided}
                   onChange={(e) => setReasonValue(e.target.value)}
-                  onBlur={(e) => commitReasonValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      countInputRef.current?.focus();
+                    }
+                  }}
                   className="input w-28 py-0.5 text-xs disabled:opacity-60"
                 />
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-neutral-400">件數:</span>
                 <input
+                  ref={countInputRef}
                   type="number"
                   min={0}
                   step="1"
                   value={countValue}
                   disabled={isVoided}
                   onChange={(e) => setCountValue(e.target.value)}
-                  onBlur={(e) => commitCountValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      feeInputRef.current?.focus();
+                    }
+                  }}
                   className="input w-20 py-0.5 text-xs disabled:opacity-60"
                 />
               </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-neutral-400">運費:</span>
+                <input
+                  ref={feeInputRef}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={feeValue}
+                  disabled={isVoided}
+                  onChange={(e) => setFeeValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitOutOfCountyDetails();
+                    }
+                  }}
+                  className="input w-20 py-0.5 text-xs disabled:opacity-60"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={isVoided}
+                onClick={commitOutOfCountyDetails}
+                className="rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+              >
+                儲存
+              </button>
             </>
           )}
         </div>
@@ -329,11 +399,15 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        {isVoided
-          ? (order.void_reason ?? "-")
-          : order.unreturned_date
-            ? formatMinguoSlash(order.unreturned_date)
-            : "-"}
+        {isVoided ? (
+          (order.void_reason ?? "-")
+        ) : (
+          <MinguoDateInput
+            value={unreturnedDateValue}
+            onChange={commitUnreturnedDate}
+            className="w-32 py-1 text-sm"
+          />
+        )}
       </div>
 
       <div className={CELL}>

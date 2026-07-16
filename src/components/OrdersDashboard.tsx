@@ -37,18 +37,17 @@ function isSunday(dateStr: string): boolean {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
 }
 
-type FilterTab = "all" | OrderStatus | "needs_price" | "everything";
+type FilterTab = "all" | OrderStatus | "needs_price" | "everything" | "needs_fee";
 
-// 未回單/已回單 (active, not voided) with none of the three price fields
-// filled in yet — still needs someone to pick a price type and fill it in.
+// Someone picked 填單價 in the price dropdown but never actually typed a
+// number in — distinct from never having touched the dropdown at all.
 function needsPrice(o: Order): boolean {
-  return (
-    o.status !== null &&
-    o.status !== "voided" &&
-    o.order_price == null &&
-    o.cash_sale_price == null &&
-    o.invoice_price == null
-  );
+  return o.status !== "voided" && o.price_field_option === "order_price" && o.order_price == null;
+}
+
+// 外縣市 orders that still haven't had a 運費 filled in.
+function needsFee(o: Order): boolean {
+  return o.status !== "voided" && o.out_of_county && o.out_of_county_fee == null;
 }
 
 export default function OrdersDashboard() {
@@ -88,6 +87,8 @@ export default function OrdersDashboard() {
       out_of_county: false,
       out_of_county_reason: null,
       out_of_county_count: null,
+      out_of_county_fee: null,
+      price_field_option: null,
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
@@ -153,11 +154,13 @@ export default function OrdersDashboard() {
       voided: 0,
       needs_price: 0,
       everything: orders.length,
+      needs_fee: 0,
     };
     for (const o of orders) {
       if (o.status) c[o.status]++;
       else c.all++;
       if (needsPrice(o)) c.needs_price++;
+      if (needsFee(o)) c.needs_fee++;
     }
     return c;
   }, [orders]);
@@ -166,6 +169,7 @@ export default function OrdersDashboard() {
     if (filter === "all") return orders.filter((o) => o.status === null);
     if (filter === "everything") return orders;
     if (filter === "needs_price") return orders.filter(needsPrice);
+    if (filter === "needs_fee") return orders.filter(needsFee);
     return orders.filter((o) => o.status === filter);
   }, [orders, filter]);
 
@@ -203,6 +207,8 @@ export default function OrdersDashboard() {
       out_of_county: order.out_of_county,
       out_of_county_reason: order.out_of_county_reason,
       out_of_county_count: order.out_of_county_count,
+      out_of_county_fee: order.out_of_county_fee,
+      price_field_option: order.price_field_option,
       order_price: order.order_price,
       cash_sale_price: order.cash_sale_price,
       invoice_price: order.invoice_price,
@@ -298,6 +304,8 @@ export default function OrdersDashboard() {
       out_of_county: false,
       out_of_county_reason: null,
       out_of_county_count: null,
+      out_of_county_fee: null,
+      price_field_option: null,
       order_price: null,
       cash_sale_price: null,
       invoice_price: null,
@@ -390,6 +398,9 @@ export default function OrdersDashboard() {
             <FilterButton active={filter === "everything"} onClick={() => setFilter("everything")}>
               全部 ({counts.everything})
             </FilterButton>
+            <FilterButton active={filter === "needs_fee"} onClick={() => setFilter("needs_fee")}>
+              填運費 ({counts.needs_fee})
+            </FilterButton>
           </div>
           <form onSubmit={handleJumpToOrder} className="flex items-center gap-1">
             <input
@@ -464,6 +475,7 @@ export default function OrdersDashboard() {
                   out_of_county: false,
                   out_of_county_reason: null,
                   out_of_county_count: null,
+                  out_of_county_fee: null,
                 })
               }
               className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-white"
