@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
   formatOrderNumber,
@@ -39,6 +39,20 @@ function isSunday(dateStr: string): boolean {
 
 type FilterTab = "all" | OrderStatus | "needs_price" | "everything" | "needs_fee";
 
+const VALID_FILTERS: FilterTab[] = [
+  "all",
+  "unreturned",
+  "returned",
+  "voided",
+  "needs_price",
+  "everything",
+  "needs_fee",
+];
+
+function isValidFilterTab(value: string): value is FilterTab {
+  return (VALID_FILTERS as string[]).includes(value);
+}
+
 // Someone picked 填單價 in the price dropdown but never actually typed a
 // number in — distinct from never having touched the dropdown at all.
 function needsPrice(o: Order): boolean {
@@ -48,6 +62,31 @@ function needsPrice(o: Order): boolean {
 // 外縣市 orders that still haven't had a 運費 filled in.
 function needsFee(o: Order): boolean {
   return o.status !== "voided" && o.out_of_county && o.out_of_county_fee == null;
+}
+
+const DATE_STORAGE_KEY = "jhdn_daily_order_date";
+const FILTER_STORAGE_KEY = "jhdn_daily_filter";
+const SCROLL_STORAGE_PREFIX = "jhdn_daily_scroll_";
+
+// Finds whichever order-row is currently sitting just below the sticky
+// toolbar, so we know what to scroll back to after a reload.
+function getVisibleOrderNumber(): number | null {
+  const rows = document.querySelectorAll<HTMLElement>('[id^="order-row-"]');
+  const threshold = 160;
+  let bestNum: number | null = null;
+  let bestDist = Infinity;
+  for (const el of rows) {
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+    const num = parseInt(el.id.replace("order-row-", ""), 10);
+    if (Number.isNaN(num)) continue;
+    const dist = Math.abs(rect.top - threshold);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestNum = num;
+    }
+  }
+  return bestNum;
 }
 
 export default function OrdersDashboard() {
@@ -60,11 +99,68 @@ export default function OrdersDashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const scrollRestoredRef = useRef(false);
+
+  // Restore the last-viewed date/tab from a previous visit. Reading
+  // localStorage only after mount (not in the initial useState) keeps the
+  // very first client render matching the server-rendered markup — this
+  // effect corrects it a beat later instead of causing a hydration mismatch.
+  useEffect(() => {
+    const savedDate = localStorage.getItem(DATE_STORAGE_KEY);
+    const savedFilter = localStorage.getItem(FILTER_STORAGE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (savedDate) setOrderDate(savedDate);
+    if (savedFilter && isValidFilterTab(savedFilter)) setFilter(savedFilter);
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
+    if (hydrated) localStorage.setItem(DATE_STORAGE_KEY, orderDate);
+  }, [orderDate, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(FILTER_STORAGE_KEY, filter);
+  }, [filter, hydrated]);
+
+  // Remember which row is near the top of the viewport as the user scrolls,
+  // so a reload can jump back to roughly the same spot.
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    function handleScroll() {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const num = getVisibleOrderNumber();
+        if (num != null) {
+          localStorage.setItem(`${SCROLL_STORAGE_PREFIX}${orderDate}_${filter}`, String(num));
+        }
+      }, 300);
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [orderDate, filter]);
+
+  // Once the (possibly restored) date/tab has actually finished loading,
+  // jump back to the remembered row a single time — not on every later
+  // filter switch within the same session, only right after a reload.
+  useEffect(() => {
+    if (!hydrated || loading || scrollRestoredRef.current) return;
+    scrollRestoredRef.current = true;
+    const stored = localStorage.getItem(`${SCROLL_STORAGE_PREFIX}${orderDate}_${filter}`);
+    if (!stored) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`order-row-${stored}`)?.scrollIntoView({ block: "center" });
+    });
+  }, [hydrated, loading, orderDate, filter]);
+
+  useEffect(() => {
+    if (!hydrated) return;
     void loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderDate]);
+  }, [orderDate, hydrated]);
 
   useEffect(() => {
     void loadDrivers();
