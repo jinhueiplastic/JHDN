@@ -14,6 +14,7 @@ const DRIVERS_TABLE = "JHDN_drivers";
 export default function DriverFilterView() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+  const [driverNameInput, setDriverNameInput] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -80,6 +81,13 @@ export default function DriverFilterView() {
     setSelectedDriver(name);
   }
 
+  function handleDriverNameSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = driverNameInput.trim();
+    if (!name) return;
+    handleSelectDriver(name);
+  }
+
   const priceSummary = (o: Order) =>
     [
       o.order_price != null && `填單價 ${o.order_price}`,
@@ -115,6 +123,22 @@ export default function DriverFilterView() {
           <p className="text-sm text-neutral-400">還沒有司機資料，請到頁面最下方新增</p>
         )}
       </div>
+
+      <form onSubmit={handleDriverNameSubmit} className="mb-4 flex items-center gap-2">
+        <input
+          type="text"
+          value={driverNameInput}
+          onChange={(e) => setDriverNameInput(e.target.value)}
+          placeholder="或輸入司機姓名查詢（包含已從名單刪除的司機）"
+          className="input w-72"
+        />
+        <button
+          type="submit"
+          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+        >
+          查詢
+        </button>
+      </form>
 
       {selectedDriver && (
         <div className="mb-6 flex flex-wrap items-end gap-3">
