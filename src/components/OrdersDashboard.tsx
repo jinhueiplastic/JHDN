@@ -99,6 +99,7 @@ export default function OrdersDashboard() {
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
   const [showMoreTabs, setShowMoreTabs] = useState(false);
+  const [showOldDrivers, setShowOldDrivers] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const scrollRestoredRef = useRef(false);
 
@@ -175,6 +176,7 @@ export default function OrdersDashboard() {
     const { data, error } = await supabase
       .from(DRIVERS_TABLE)
       .select("*")
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("name", { ascending: true });
     if (!error) setDrivers(data as Driver[]);
   }
@@ -273,6 +275,13 @@ export default function OrdersDashboard() {
     if (filter === "needs_fee") return orders.filter(needsFee);
     return orders.filter((o) => o.status === filter);
   }, [orders, filter]);
+
+  // Deleted (archived) drivers stay out of the picker by default — showing
+  // them requires the "舊司機" toggle, but past orders keep their name
+  // either way since driver_name is plain text, not a foreign key.
+  const activeDrivers = useMemo(() => drivers.filter((d) => d.active), [drivers]);
+  const oldDrivers = useMemo(() => drivers.filter((d) => !d.active), [drivers]);
+  const visibleDrivers = showOldDrivers ? [...activeDrivers, ...oldDrivers] : activeDrivers;
 
   const nextAvailableNumber = useMemo(() => {
     // No rows yet (e.g. a Sunday, which no longer auto-provisions) still
@@ -522,6 +531,15 @@ export default function OrdersDashboard() {
                 </FilterButton>
               </>
             )}
+            {oldDrivers.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowOldDrivers((v) => !v)}
+                className="rounded-full border border-dashed border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-50"
+              >
+                {showOldDrivers ? "‹ 舊司機" : "舊司機..."}
+              </button>
+            )}
           </div>
           <form onSubmit={handleJumpToOrder} className="flex items-center gap-1">
             <input
@@ -552,7 +570,7 @@ export default function OrdersDashboard() {
             </span>
   
             <div className="flex flex-wrap gap-1">
-              {drivers.map((d) => (
+              {visibleDrivers.map((d) => (
                 <button
                   type="button"
                   key={d.id}
@@ -683,7 +701,7 @@ export default function OrdersDashboard() {
               <OrderRow
                 key={o.id}
                 order={o}
-                drivers={drivers}
+                drivers={visibleDrivers}
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={toggleSelect}
                 onUpdate={handleUpdate}

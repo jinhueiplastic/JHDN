@@ -340,35 +340,43 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        <div className="flex max-w-[280px] flex-wrap gap-2">
-          {drivers.map((d) => (
-            <button
-              type="button"
-              key={d.id}
-              disabled={(!canPickDriver && !editingDriver) || pendingDriver !== null}
-              onClick={() => void handleDriverSelect(d.name)}
-              className={`rounded-full border px-3 py-1 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60 ${
-                displayedDriver === d.name
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
-              }`}
-            >
-              {d.name}
-            </button>
-          ))}
-          {drivers.length === 0 && (
-            <span className="text-xs text-neutral-400">請先到下面新增司機</span>
-          )}
-        </div>
-        {order.status === null && (
-          <button
-            type="button"
-            disabled={promoting}
-            onClick={() => void handlePromote()}
-            className="mt-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
-          >
-            未回單
-          </button>
+        {canPickDriver || (isReturned && editingDriver) ? (
+          <>
+            <div className="flex max-w-[280px] flex-wrap gap-2">
+              {drivers.map((d) => (
+                <button
+                  type="button"
+                  key={d.id}
+                  disabled={pendingDriver !== null}
+                  onClick={() => void handleDriverSelect(d.name)}
+                  className={`rounded-full border px-3 py-1 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60 ${
+                    displayedDriver === d.name
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : d.active
+                        ? "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                        : "border-dashed border-neutral-300 text-neutral-400 hover:bg-neutral-50"
+                  }`}
+                >
+                  {d.name}
+                </button>
+              ))}
+              {drivers.length === 0 && (
+                <span className="text-xs text-neutral-400">請先到下面新增司機</span>
+              )}
+            </div>
+            {order.status === null && (
+              <button
+                type="button"
+                disabled={promoting}
+                onClick={() => void handlePromote()}
+                className="mt-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+              >
+                未回單
+              </button>
+            )}
+          </>
+        ) : (
+          <span className="font-bold text-neutral-800">{order.driver_name ?? "-"}</span>
         )}
       </div>
 

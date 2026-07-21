@@ -15,21 +15,15 @@ import NavMenu from "@/components/NavMenu";
 const TABLE = "JHDN_orders";
 const DRIVERS_TABLE = "JHDN_drivers";
 
-type Mode = "month" | "driver";
+type Mode = "day" | "driver";
 
-function todayMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
-
-function monthRange(monthStr: string): { start: string; end: string } {
-  const [y, m] = monthStr.split("-").map(Number);
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return { start: `${monthStr}-01`, end: `${monthStr}-${String(lastDay).padStart(2, "0")}` };
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function ReportView() {
-  const [mode, setMode] = useState<Mode>("month");
-  const [month, setMonth] = useState(todayMonth());
+  const [mode, setMode] = useState<Mode>("day");
+  const [reportDate, setReportDate] = useState(todayStr());
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
@@ -42,6 +36,8 @@ export default function ReportView() {
       const { data, error } = await supabase
         .from(DRIVERS_TABLE)
         .select("*")
+        .eq("active", true)
+        .order("sort_order", { ascending: true, nullsFirst: false })
         .order("name", { ascending: true });
       if (!error) setDrivers(data as Driver[]);
     }
@@ -49,14 +45,11 @@ export default function ReportView() {
   }, []);
 
   async function fetchOrders(): Promise<Order[]> {
-    if (mode === "month") {
-      const { start, end } = monthRange(month);
+    if (mode === "day") {
       const { data, error } = await supabase
         .from(TABLE)
         .select("*")
-        .gte("order_date", start)
-        .lte("order_date", end)
-        .order("order_date", { ascending: true })
+        .eq("order_date", reportDate)
         .order("order_number", { ascending: true });
       if (error) throw new Error(error.message);
       return data as Order[];
@@ -82,7 +75,7 @@ export default function ReportView() {
   }
 
   function reportFilename(): string {
-    if (mode === "month") return `出貨單報表_${month}.xlsx`;
+    if (mode === "day") return `出貨單報表_${reportDate}.xlsx`;
     const range = startDate || endDate ? `_${startDate || "起"}~${endDate || "訖"}` : "";
     return `出貨單報表_${selectedDriver}${range}.xlsx`;
   }
@@ -168,14 +161,14 @@ export default function ReportView() {
       <div className="mb-6 flex gap-2">
         <button
           type="button"
-          onClick={() => setMode("month")}
+          onClick={() => setMode("day")}
           className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-            mode === "month"
+            mode === "day"
               ? "border-neutral-900 bg-neutral-900 text-white"
               : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
           }`}
         >
-          整月報表
+          單日報表
         </button>
         <button
           type="button"
@@ -190,13 +183,13 @@ export default function ReportView() {
         </button>
       </div>
 
-      {mode === "month" ? (
+      {mode === "day" ? (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-neutral-700">選擇月份</label>
+          <label className="block text-sm font-medium text-neutral-700">選擇日期</label>
           <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            type="date"
+            value={reportDate}
+            onChange={(e) => setReportDate(e.target.value)}
             className="input mt-1 w-auto"
           />
         </div>

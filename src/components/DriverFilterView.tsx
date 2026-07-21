@@ -14,7 +14,7 @@ const DRIVERS_TABLE = "JHDN_drivers";
 export default function DriverFilterView() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
-  const [driverNameInput, setDriverNameInput] = useState("");
+  const [showOldDrivers, setShowOldDrivers] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -26,21 +26,63 @@ export default function DriverFilterView() {
     const { data, error } = await supabase
       .from(DRIVERS_TABLE)
       .select("*")
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("name", { ascending: true });
     if (!error) setDrivers(data as Driver[]);
   }
 
   async function handleAddDriver(name: string) {
+    // New (or reactivated) drivers land at the end of the order, ready to
+    // be moved with the ↑/↓ buttons if needed.
+    const nextOrder = drivers.reduce((max, d) => Math.max(max, d.sort_order ?? -1), -1) + 1;
     const { error } = await supabase
       .from(DRIVERS_TABLE)
-      .upsert({ name }, { onConflict: "name", ignoreDuplicates: true });
+      .upsert({ name, active: true, sort_order: nextOrder }, { onConflict: "name" });
     if (error) throw new Error(error.message);
+    await loadDrivers();
+  }
+
+  async function handleReorderDriver(driver: Driver, direction: "up" | "down") {
+    const active = drivers
+      .filter((d) => d.active)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const index = active.findIndex((d) => d.id === driver.id);
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || swapIndex < 0 || swapIndex >= active.length) return;
+
+    const other = active[swapIndex];
+    const driverOrder = driver.sort_order ?? index;
+    const otherOrder = other.sort_order ?? swapIndex;
+
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from(DRIVERS_TABLE).update({ sort_order: otherOrder }).eq("id", driver.id),
+      supabase.from(DRIVERS_TABLE).update({ sort_order: driverOrder }).eq("id", other.id),
+    ]);
+    if (e1 || e2) {
+      alert((e1 ?? e2)?.message);
+      return;
+    }
     await loadDrivers();
   }
 
   async function handleDeleteDriver(driver: Driver) {
     if (!confirm(`確定要刪除司機「${driver.name}」嗎？`)) return;
-    const { error } = await supabase.from(DRIVERS_TABLE).delete().eq("id", driver.id);
+    const { error } = await supabase
+      .from(DRIVERS_TABLE)
+      .update({ active: false })
+      .eq("id", driver.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    await loadDrivers();
+  }
+
+  async function handleRestoreDriver(driver: Driver) {
+    const { error } = await supabase
+      .from(DRIVERS_TABLE)
+      .update({ active: true })
+      .eq("id", driver.id);
     if (error) {
       alert(error.message);
       return;
@@ -81,12 +123,8 @@ export default function DriverFilterView() {
     setSelectedDriver(name);
   }
 
-  function handleDriverNameSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const name = driverNameInput.trim();
-    if (!name) return;
-    handleSelectDriver(name);
-  }
+  const activeDrivers = drivers.filter((d) => d.active);
+  const oldDrivers = drivers.filter((d) => !d.active);
 
   const priceSummary = (o: Order) =>
     [
@@ -104,8 +142,8 @@ export default function DriverFilterView() {
         <h1 className="text-xl font-semibold">依司機查詢</h1>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {drivers.map((d) => (
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {activeDrivers.map((d) => (
           <button
             type="button"
             key={d.id}
@@ -119,26 +157,34 @@ export default function DriverFilterView() {
             {d.name}
           </button>
         ))}
-        {drivers.length === 0 && (
+        {activeDrivers.length === 0 && (
           <p className="text-sm text-neutral-400">還沒有司機資料，請到頁面最下方新增</p>
         )}
+        {oldDrivers.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowOldDrivers((v) => !v)}
+            className="rounded-full border border-neutral-300 px-3 py-1.5 text-sm text-neutral-400 hover:bg-neutral-50"
+          >
+            {showOldDrivers ? "‹" : "舊司機..."}
+          </button>
+        )}
+        {showOldDrivers &&
+          oldDrivers.map((d) => (
+            <button
+              type="button"
+              key={d.id}
+              onClick={() => handleSelectDriver(d.name)}
+              className={`rounded-full border border-dashed px-3 py-1.5 text-sm font-medium ${
+                selectedDriver === d.name
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-300 text-neutral-400 hover:bg-neutral-50"
+              }`}
+            >
+              {d.name}
+            </button>
+          ))}
       </div>
-
-      <form onSubmit={handleDriverNameSubmit} className="mb-4 flex items-center gap-2">
-        <input
-          type="text"
-          value={driverNameInput}
-          onChange={(e) => setDriverNameInput(e.target.value)}
-          placeholder="或輸入司機姓名查詢（包含已從名單刪除的司機）"
-          className="input w-72"
-        />
-        <button
-          type="submit"
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-        >
-          查詢
-        </button>
-      </form>
 
       {selectedDriver && (
         <div className="mb-6 flex flex-wrap items-end gap-3">
@@ -244,7 +290,13 @@ export default function DriverFilterView() {
         </button>
         {managerOpen && (
           <div className="mt-3">
-            <DriverManager drivers={drivers} onAdd={handleAddDriver} onDelete={handleDeleteDriver} />
+            <DriverManager
+              drivers={drivers}
+              onAdd={handleAddDriver}
+              onDelete={handleDeleteDriver}
+              onRestore={handleRestoreDriver}
+              onReorder={handleReorderDriver}
+            />
           </div>
         )}
       </div>
