@@ -28,7 +28,11 @@ export default function DriverFilterView() {
       .select("*")
       .order("sort_order", { ascending: true, nullsFirst: false })
       .order("name", { ascending: true });
-    if (!error) setDrivers(data as Driver[]);
+    if (error) {
+      setError(`讀取司機名單失敗：${error.message}`);
+      return;
+    }
+    setDrivers(data as Driver[]);
   }
 
   async function handleAddDriver(name: string) {
