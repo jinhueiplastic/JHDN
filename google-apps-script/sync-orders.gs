@@ -1,18 +1,24 @@
 /**
  * JHDN 出貨單管理 -- Supabase -> Google Sheet 同步腳本
  *
- * 用途：把 Supabase 的 "JHDN_orders" 資料表同步到這份 Google Sheet 當報表/備份。
- * 資料的來源永遠是網站 -> Supabase，這個腳本只負責「讀取後覆寫」，不會反過來把
- * Sheet 的修改寫回 Supabase。
+ * 用途：把 Supabase 的 "JHDN_orders" 資料表同步到這份 Google Sheet 當報表/備份，
+ * 同時把每一筆異動都額外記錄成一份「只增不減」的歷史紀錄，方便事後追查某張訂單
+ * 到底何時被改成什麼樣子（例如發現資料被誤按「設為原始狀態」清空時，可以回頭查
+ * 這份紀錄）。資料的來源永遠是網站 -> Supabase，這個腳本只負責「讀取後寫入
+ * Sheet」，不會反過來把 Sheet 的修改寫回 Supabase。
  *
  * ===== 運作方式 =====
  *
  * 網站每次寫入 Supabase，資料庫觸發器只會把這筆異動快速記錄進一個佇列表
  * (`JHDN_sync_queue`)，不會直接呼叫 Google。這個腳本設定一個「每分鐘」的時間
- * 觸發條件執行 drainSyncQueue()，依序、一列一列（中間有間隔）把佇列清空、寫進
- * Sheet。這樣不管一次改幾百筆（例如選一個新日期自動建立 300 個單號），也不會
- * 因為同時湧入太多請求把 Google Apps Script 塞爆、造成資料遺漏或順序錯亂——
- * 全程自動，不需要手動點「立即同步」。
+ * 觸發條件執行 drainSyncQueue()，依序、一列一列（中間有間隔）把佇列清空，每一筆
+ * 異動會做兩件事：(1) 更新「現況」分頁（`Supabase同步(勿手動編輯)`）裡對應那張
+ * 訂單的那一列，永遠只保留最新樣子；(2) 在「異動紀錄」分頁
+ * （`異動紀錄(勿手動編輯)`）多新增一列，記錄這次異動的時間、類型（新增/更新/
+ * 刪除）跟當下完整的欄位內容，這份紀錄永遠只會增加，不會被覆蓋或刪除，就算現況
+ * 分頁的資料被清空、改錯，也能從這份紀錄查回歷史。這樣不管一次改幾百筆（例如
+ * 選一個新日期自動建立 200 個單號），也不會因為同時湧入太多請求把 Google Apps
+ * Script 塞爆、造成資料遺漏或順序錯亂——全程自動，不需要手動點「立即同步」。
  *
  * 一般情況下，新資料大約 1 分鐘內就會出現在 Sheet 上；一次異動很多筆時，
  * 全部同步完可能要多等幾分鐘（處理速度大約每秒 3-4 筆）。
@@ -23,12 +29,15 @@
  * 2. 左側「專案設定」(齒輪圖示) -> 指令碼屬性 (Script Properties)，新增：
  *      SUPABASE_URL       = https://xxxx.supabase.co
  *      SUPABASE_ANON_KEY  = (你的 anon public key)
- *      SHEET_NAME         = (選填) 要寫入的分頁名稱，不設定的話腳本會
- *                           自動建立/使用「Supabase同步(勿手動編輯)」分頁。
+ *      SHEET_NAME         = (選填) 現況分頁名稱，不設定的話腳本會自動建立/
+ *                           使用「Supabase同步(勿手動編輯)」分頁。
+ *      LOG_SHEET_NAME     = (選填) 異動紀錄分頁名稱，不設定的話腳本會自動建立/
+ *                           使用「異動紀錄(勿手動編輯)」分頁。
  *                           如果你已經有「出貨單」「Data」等手動操作的分頁，
- *                           不要把 SHEET_NAME 設成那些名字，避免被整批覆寫。
+ *                           不要把上面兩個名稱設成那些名字，避免被覆寫。
  * 3. 執行一次 syncFromSupabase()，Google 會跳出授權視窗，同意即可（順便把
- *    現有資料整批同步一次）。
+ *    現有資料整批同步一次到現況分頁——這一步不會寫進異動紀錄分頁，異動紀錄只
+ *    記錄之後透過佇列處理的真實異動，避免每次手動整批同步都灌一堆重複紀錄）。
  * 4. 左側「觸發條件」(時鐘圖示) -> 新增觸發條件：
  *      選擇函式：drainSyncQueue
  *      事件來源：時間驅動 -> 分鐘計時器 -> 每分鐘
@@ -63,6 +72,17 @@ const HEADERS = [
   "更新時間",
 ];
 
+const CHANGE_TYPE_LABEL = {
+  INSERT: "新增",
+  UPDATE: "更新",
+  DELETE: "刪除",
+};
+
+// 這個分頁是「只增不減」的異動紀錄：每一次網站上的新增/修改/作廢，都會在這裡
+// 多一列，不會覆蓋舊的紀錄，方便事後追查「這筆訂單到底什麼時候被改成什麼樣子」。
+// 跟上面 HEADERS 對應的「現況」分頁不一樣，那個分頁永遠只保留每張訂單最新的樣子。
+const LOG_HEADERS = ["記錄時間", "異動類型", ...HEADERS];
+
 // 每處理一列的間隔，避免短時間內對 Sheets 送出太多寫入請求
 const DRAIN_PACE_MS = 250;
 // 單次執行的時間預算，接近這個時間就先結束，剩下的留給下一次（每分鐘）觸發
@@ -91,6 +111,7 @@ function drainSyncQueue() {
   try {
     const startedAt = Date.now();
     const sheet = getOrCreateSheet();
+    const logSheet = getOrCreateLogSheet();
 
     while (Date.now() - startedAt < DRAIN_TIME_BUDGET_MS) {
       const queueItems = fetchQueueBatch(supabaseUrl, anonKey, 50);
@@ -98,6 +119,7 @@ function drainSyncQueue() {
 
       for (const item of queueItems) {
         applyQueueItem(sheet, item.payload);
+        appendLogRow(logSheet, item.payload);
         deleteQueueItem(supabaseUrl, anonKey, item.id);
         Utilities.sleep(DRAIN_PACE_MS);
 
@@ -171,6 +193,36 @@ function getOrCreateSheet() {
   // only touches row 1, never the data rows below it.
   sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
   return sheet;
+}
+
+/** 異動紀錄分頁：跟 getOrCreateSheet() 不一樣，這裡的資料只會用 appendRow 增加，
+ *  drainSyncQueue() 以外的地方（例如 syncFromSupabase() 整批重跑）都不會動到它，
+ *  避免每次手動「立即同步」都把整批現況重複灌進歷史紀錄裡。 */
+function getOrCreateLogSheet() {
+  const props = PropertiesService.getScriptProperties();
+  const sheetName = props.getProperty("LOG_SHEET_NAME") || "異動紀錄(勿手動編輯)";
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+  sheet.getRange(1, 1, 1, LOG_HEADERS.length).setValues([LOG_HEADERS]);
+  return sheet;
+}
+
+/** 把這次佇列項目的異動，多加一列進異動紀錄分頁（永遠是新增一列，不覆寫舊的） */
+function appendLogRow(logSheet, payload) {
+  const type = payload.type;
+  const order = type === "DELETE" ? payload.old_record : payload.record;
+  if (!order) return;
+
+  const row = [
+    new Date(),
+    CHANGE_TYPE_LABEL[type] || type,
+    ...orderToRow(order),
+  ];
+  logSheet.appendRow(row);
 }
 
 /** 用「單號」欄（民國年月日+序號的完整代碼）找出這是哪一列，天生不會重複 */
