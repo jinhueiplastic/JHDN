@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
@@ -77,6 +77,7 @@ export default function OrderRow({
   );
   const countInputRef = useRef<HTMLInputElement>(null);
   const feeInputRef = useRef<HTMLInputElement>(null);
+  const outOfCountyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingDriver, setEditingDriver] = useState(false);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
@@ -183,6 +184,10 @@ export default function OrderRow({
       setCountValue("");
       setReasonValue("");
       setFeeValue("");
+      if (outOfCountyTimerRef.current) {
+        clearTimeout(outOfCountyTimerRef.current);
+        outOfCountyTimerRef.current = null;
+      }
     }
     setEditingOutOfCounty(checked);
     void onUpdate(order, {
@@ -193,10 +198,15 @@ export default function OrderRow({
     });
   }
 
-  // 原因/件數/運費 stage locally and only commit together when "儲存" is
-  // clicked, so typing doesn't get half-saved on an accidental blur. Once
-  // saved, switch to plain text so it's visibly clear the value stuck.
+  // 原因/件數/運費 stage locally and commit together when "儲存" is clicked,
+  // Enter is pressed in 運費, or 5 seconds pass without further typing —
+  // whichever comes first. Once saved, switch to plain text so it's visibly
+  // clear the value stuck.
   async function commitOutOfCountyDetails() {
+    if (outOfCountyTimerRef.current) {
+      clearTimeout(outOfCountyTimerRef.current);
+      outOfCountyTimerRef.current = null;
+    }
     await onUpdate(order, {
       out_of_county_reason: reasonValue.trim() === "" ? null : reasonValue,
       out_of_county_count: countValue.trim() === "" ? null : Number(countValue),
@@ -204,6 +214,19 @@ export default function OrderRow({
     });
     setEditingOutOfCounty(false);
   }
+
+  function scheduleOutOfCountyAutoSave() {
+    if (outOfCountyTimerRef.current) clearTimeout(outOfCountyTimerRef.current);
+    outOfCountyTimerRef.current = setTimeout(() => {
+      void commitOutOfCountyDetails();
+    }, 5000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (outOfCountyTimerRef.current) clearTimeout(outOfCountyTimerRef.current);
+    };
+  }, []);
 
   function commitUnreturnedDate(value: string) {
     setUnreturnedDateValue(value);
@@ -264,7 +287,10 @@ export default function OrderRow({
                     type="text"
                     value={reasonValue}
                     disabled={isVoided}
-                    onChange={(e) => setReasonValue(e.target.value)}
+                    onChange={(e) => {
+                      setReasonValue(e.target.value);
+                      scheduleOutOfCountyAutoSave();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -283,7 +309,10 @@ export default function OrderRow({
                     step="1"
                     value={countValue}
                     disabled={isVoided}
-                    onChange={(e) => setCountValue(e.target.value)}
+                    onChange={(e) => {
+                      setCountValue(e.target.value);
+                      scheduleOutOfCountyAutoSave();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -302,7 +331,10 @@ export default function OrderRow({
                     step="0.01"
                     value={feeValue}
                     disabled={isVoided}
-                    onChange={(e) => setFeeValue(e.target.value)}
+                    onChange={(e) => {
+                      setFeeValue(e.target.value);
+                      scheduleOutOfCountyAutoSave();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
