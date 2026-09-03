@@ -58,9 +58,11 @@ function needsPrice(o: Order): boolean {
   return o.status !== "voided" && o.price_field_option === "order_price" && o.order_price == null;
 }
 
-// 外縣市 orders that still haven't had a 運費 filled in.
+// All 外縣市 orders, whether or not 運費 has been filled in yet — this tab
+// is simply "every 外縣市 order lives here", so filling it in later doesn't
+// make it disappear.
 function needsFee(o: Order): boolean {
-  return o.status !== "voided" && o.out_of_county && o.out_of_county_fee == null;
+  return o.status !== "voided" && o.out_of_county;
 }
 
 const DATE_STORAGE_KEY = "jhdn_daily_order_date";
