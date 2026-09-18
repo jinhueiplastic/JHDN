@@ -339,38 +339,29 @@ export default function OrdersDashboard() {
     return rows.length;
   }
 
+  // Sends only the changed columns (never a full-row snapshot) so that two
+  // near-simultaneous edits on the same row — e.g. typing a price and then
+  // immediately picking a driver — can't have one clobber the other with a
+  // stale value for a column it never meant to touch.
   async function handleUpdate(order: Order, patch: Partial<OrderInput>) {
-    const merged: OrderInput = {
-      order_date: order.order_date,
-      order_number: order.order_number,
-      status: order.status,
-      driver_name: order.driver_name,
-      out_of_county: order.out_of_county,
-      out_of_county_reason: order.out_of_county_reason,
-      out_of_county_count: order.out_of_county_count,
-      out_of_county_fee: order.out_of_county_fee,
-      price_field_option: order.price_field_option,
-      order_price: order.order_price,
-      cash_sale_price: order.cash_sale_price,
-      invoice_price: order.invoice_price,
-      shipped_date: order.shipped_date,
-      unreturned_date: order.unreturned_date,
-      void_reason: order.void_reason,
-      ...patch,
-    };
+    const nextPatch: Partial<OrderInput> = { ...patch };
+
+    const nextStatus = patch.status !== undefined ? patch.status : order.status;
+    const nextUnreturnedDate =
+      patch.unreturned_date !== undefined ? patch.unreturned_date : order.unreturned_date;
 
     // `unreturned_date` doubles as "the date this status became true": the
     // day it was flagged unreturned, or the day it was confirmed returned.
-    if (merged.status === "unreturned" && !merged.unreturned_date) {
-      merged.unreturned_date = todayStr();
+    if (nextStatus === "unreturned" && !nextUnreturnedDate) {
+      nextPatch.unreturned_date = todayStr();
     }
-    if (merged.status === "returned") {
-      merged.unreturned_date = todayStr();
+    if (nextStatus === "returned") {
+      nextPatch.unreturned_date = todayStr();
     }
 
     const { data, error } = await supabase
       .from(TABLE)
-      .update(merged)
+      .update(nextPatch)
       .eq("id", order.id)
       .select()
       .single();
