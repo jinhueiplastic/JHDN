@@ -439,6 +439,12 @@ export default function OrderRow({
                   onBlur={(e) => {
                     if (!isReturned) commitPriceValue(e.target.value);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    if (isReturned) void commitFieldOption();
+                    else void commitPriceValue(e.currentTarget.value);
+                  }}
                   placeholder={PRICE_LABELS[fieldOption]}
                   className="input w-20 py-1 text-sm disabled:opacity-60"
                 />
