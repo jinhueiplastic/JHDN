@@ -103,6 +103,7 @@ export default function OrdersDashboard() {
   const [showMoreTabs, setShowMoreTabs] = useState(false);
   const [showOldDrivers, setShowOldDrivers] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [needsPriceSnapshot, setNeedsPriceSnapshot] = useState<Set<string> | null>(null);
   const scrollRestoredRef = useRef(false);
 
   // Restore the last-viewed date/tab from a previous visit. Reading
@@ -130,6 +131,21 @@ export default function OrdersDashboard() {
   useEffect(() => {
     if (hydrated) localStorage.setItem(FILTER_STORAGE_KEY, filter);
   }, [filter, hydrated]);
+
+  // 填單價 is a "still needs a number typed in" worklist — freeze which
+  // rows belong in it the moment the tab is opened, so fixing a row's
+  // dropdown (or typing the number itself) mid-edit doesn't yank the row
+  // out of view before the user's done with it. It goes live again the
+  // next time this tab is opened (or the date changes — see loadOrders).
+  useEffect(() => {
+    if (filter === "needs_price") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNeedsPriceSnapshot(new Set(orders.filter(needsPrice).map((o) => o.id)));
+    } else {
+      setNeedsPriceSnapshot(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   // Remember which row is near the top of the viewport as the user scrolls,
   // so a reload can jump back to roughly the same spot.
@@ -242,14 +258,19 @@ export default function OrdersDashboard() {
         setLoading(false);
         return;
       }
-      setOrders(
-        (inserted as Order[]).sort((a, b) => a.order_number - b.order_number)
-      );
+      const nextOrders = (inserted as Order[]).sort((a, b) => a.order_number - b.order_number);
+      setOrders(nextOrders);
+      if (filter === "needs_price") {
+        setNeedsPriceSnapshot(new Set(nextOrders.filter(needsPrice).map((o) => o.id)));
+      }
       setLoading(false);
       return;
     }
 
     setOrders(data as Order[]);
+    if (filter === "needs_price") {
+      setNeedsPriceSnapshot(new Set((data as Order[]).filter(needsPrice).map((o) => o.id)));
+    }
     setLoading(false);
   }
 
@@ -277,10 +298,14 @@ export default function OrdersDashboard() {
   const visibleOrders = useMemo(() => {
     if (filter === "all") return orders.filter((o) => o.status === null);
     if (filter === "everything") return orders;
-    if (filter === "needs_price") return orders.filter(needsPrice);
+    if (filter === "needs_price") {
+      return needsPriceSnapshot
+        ? orders.filter((o) => needsPriceSnapshot.has(o.id))
+        : orders.filter(needsPrice);
+    }
     if (filter === "needs_fee") return orders.filter(needsFee);
     return orders.filter((o) => o.status === filter);
-  }, [orders, filter]);
+  }, [orders, filter, needsPriceSnapshot]);
 
   // Deleted (archived) drivers stay out of the picker by default — showing
   // them requires the "舊司機" toggle, but past orders keep their name
