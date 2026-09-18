@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { formatOrderNumber, Order, OrderInput } from "@/types/order";
+import { formatMinguoSlash, formatOrderNumber, Order, OrderInput } from "@/types/order";
 import { Driver } from "@/types/driver";
 import StatusBadge from "@/components/StatusBadge";
 import MinguoDateInput from "@/components/MinguoDateInput";
@@ -66,6 +66,12 @@ export default function OrderRow({
     fieldOption && fieldOption !== "shipped_date" ? (order[fieldOption]?.toString() ?? "") : ""
   );
   const [shippedDate, setShippedDate] = useState(order.shipped_date ?? "");
+  const [editingPrice, setEditingPrice] = useState(
+    !(
+      fieldOption &&
+      (fieldOption === "shipped_date" ? order.shipped_date != null : order[fieldOption] != null)
+    )
+  );
   const [countValue, setCountValue] = useState(order.out_of_county_count?.toString() ?? "");
   const [reasonValue, setReasonValue] = useState(order.out_of_county_reason ?? "");
   const [feeValue, setFeeValue] = useState(order.out_of_county_fee?.toString() ?? "");
@@ -152,9 +158,9 @@ export default function OrderRow({
   }
 
   function commitPriceValue(raw: string) {
-    if (!fieldOption || fieldOption === "shipped_date") return;
+    if (!fieldOption || fieldOption === "shipped_date") return Promise.resolve();
     const parsed = raw === "" ? null : Number(raw);
-    void onUpdate(order, {
+    return onUpdate(order, {
       order_price: fieldOption === "order_price" ? parsed : null,
       cash_sale_price: fieldOption === "cash_sale_price" ? parsed : null,
       invoice_price: fieldOption === "invoice_price" ? parsed : null,
@@ -173,9 +179,12 @@ export default function OrderRow({
     else commitShippedDate(value);
   }
 
-  function commitFieldOption() {
-    if (fieldOption === "shipped_date") void onUpdate(order, { shipped_date: shippedDate || null });
-    else if (fieldOption) commitPriceValue(priceValue);
+  // Once saved, switch to plain text so it's visibly clear the value stuck
+  // — same pattern as the 外縣市 details below.
+  async function commitFieldOption() {
+    if (fieldOption === "shipped_date") await onUpdate(order, { shipped_date: shippedDate || null });
+    else if (fieldOption) await commitPriceValue(priceValue);
+    setEditingPrice(false);
   }
 
   function handleOutOfCountyToggle(checked: boolean) {
@@ -381,52 +390,71 @@ export default function OrderRow({
       </div>
 
       <div className={CELL}>
-        <div className="flex flex-col items-start gap-1">
-          <select
-            value={fieldOption}
-            disabled={isVoided}
-            onChange={(e) => handleFieldOptionChange(e.target.value)}
-            className="input py-1 text-sm disabled:opacity-60"
-          >
-            <option value="">(未選擇)</option>
-            <option value="order_price">填單價</option>
-            <option value="cash_sale_price">現銷價</option>
-            <option value="invoice_price">發票金額</option>
-            <option value="shipped_date">實際出貨日</option>
-          </select>
-          {fieldOption === "shipped_date" ? (
-            <MinguoDateInput
-              value={shippedDate}
-              onChange={handleShippedDateChange}
-              disabled={isVoided}
-              className="w-32 py-1 text-sm"
-            />
-          ) : (
-            fieldOption && (
-              <input
-                type="number"
-                step="0.01"
-                value={priceValue}
-                disabled={isVoided}
-                onChange={(e) => setPriceValue(e.target.value)}
-                onBlur={(e) => {
-                  if (!isReturned) commitPriceValue(e.target.value);
-                }}
-                placeholder={PRICE_LABELS[fieldOption]}
-                className="input w-20 py-1 text-sm disabled:opacity-60"
-              />
-            )
-          )}
-          {isReturned && fieldOption && (
+        {isReturned && !editingPrice ? (
+          <div className="flex flex-col items-start gap-0.5 text-xs text-neutral-600">
+            <span>
+              {fieldOption === "shipped_date"
+                ? `實際出貨日: ${shippedDate ? formatMinguoSlash(shippedDate) : "-"}`
+                : fieldOption
+                  ? `${PRICE_LABELS[fieldOption]}: ${priceValue || "-"}`
+                  : "-"}
+            </span>
             <button
               type="button"
-              onClick={commitFieldOption}
-              className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+              onClick={() => setEditingPrice(true)}
+              className="text-neutral-400 hover:underline"
             >
-              儲存
+              編輯
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-1">
+            <select
+              value={fieldOption}
+              disabled={isVoided}
+              onChange={(e) => handleFieldOptionChange(e.target.value)}
+              className="input py-1 text-sm disabled:opacity-60"
+            >
+              <option value="">(未選擇)</option>
+              <option value="order_price">填單價</option>
+              <option value="cash_sale_price">現銷價</option>
+              <option value="invoice_price">發票金額</option>
+              <option value="shipped_date">實際出貨日</option>
+            </select>
+            {fieldOption === "shipped_date" ? (
+              <MinguoDateInput
+                value={shippedDate}
+                onChange={handleShippedDateChange}
+                disabled={isVoided}
+                className="w-32 py-1 text-sm"
+              />
+            ) : (
+              fieldOption && (
+                <input
+                  type="number"
+                  step="0.01"
+                  value={priceValue}
+                  disabled={isVoided}
+                  onChange={(e) => setPriceValue(e.target.value)}
+                  onBlur={(e) => {
+                    if (!isReturned) commitPriceValue(e.target.value);
+                  }}
+                  placeholder={PRICE_LABELS[fieldOption]}
+                  className="input w-20 py-1 text-sm disabled:opacity-60"
+                />
+              )
+            )}
+            {isReturned && fieldOption && (
+              <button
+                type="button"
+                onClick={() => void commitFieldOption()}
+                className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+              >
+                儲存
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={CELL}>
