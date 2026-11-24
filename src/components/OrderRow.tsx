@@ -256,16 +256,11 @@ export default function OrderRow({
           type="button"
           onClick={() => setHistoryOpen(true)}
           title="查看處理紀錄"
-          className="flex w-full flex-col items-start text-left hover:opacity-70"
+          className="text-left hover:opacity-70"
         >
           <span className="whitespace-nowrap font-mono text-lg font-semibold">
             {formatOrderNumber(order.order_number)}
           </span>
-          {order.updated_by && order.updated_by !== "系統" && (
-            <span className="max-w-full truncate text-xs text-neutral-400">
-              {order.updated_by}
-            </span>
-          )}
         </button>
       </div>
 
