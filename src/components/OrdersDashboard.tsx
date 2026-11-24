@@ -460,6 +460,22 @@ export default function OrdersDashboard() {
     });
   }
 
+  async function handleDeleteOne(order: Order) {
+    if (!confirm(`確定要刪除單號 ${formatOrderNumber(order.order_number)} 嗎？`)) return;
+    const { error } = await supabase.from(TABLE).delete().eq("id", order.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setOrders((prev) => prev.filter((o) => o.id !== order.id));
+    setSelectedIds((prev) => {
+      if (!prev.has(order.id)) return prev;
+      const next = new Set(prev);
+      next.delete(order.id);
+      return next;
+    });
+  }
+
   async function handleBulkDelete() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
@@ -566,16 +582,16 @@ export default function OrdersDashboard() {
                 >
                   全部 ({counts.everything})
                 </FilterButton>
+                {oldDrivers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOldDrivers((v) => !v)}
+                    className="rounded-full border border-dashed border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-50"
+                  >
+                    {showOldDrivers ? "‹ 舊司機" : "舊司機..."}
+                  </button>
+                )}
               </>
-            )}
-            {oldDrivers.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowOldDrivers((v) => !v)}
-                className="rounded-full border border-dashed border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-50"
-              >
-                {showOldDrivers ? "‹ 舊司機" : "舊司機..."}
-              </button>
             )}
           </div>
           <form onSubmit={handleJumpToOrder} className="flex items-center gap-1">
@@ -749,6 +765,7 @@ export default function OrdersDashboard() {
                 selected={selectedIds.has(o.id)}
                 onToggleSelect={toggleSelect}
                 onUpdate={handleUpdate}
+                onDelete={o.order_number > TOTAL_ORDER_NUMBERS ? handleDeleteOne : undefined}
               />
             ))
           )}

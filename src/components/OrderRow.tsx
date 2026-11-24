@@ -60,6 +60,10 @@ interface Props {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onUpdate: (order: Order, patch: Partial<OrderInput>) => Promise<void>;
+  // Set for extra numbers past the daily 200 (201+): an unused one is just
+  // removed outright instead of going through 作廢, so it never lingers in
+  // the 作廢/全部 tabs.
+  onDelete?: (order: Order) => Promise<void>;
 }
 
 // Local text-input state only ever changes via this row's own typing/commit
@@ -71,6 +75,7 @@ export default function OrderRow({
   selected,
   onToggleSelect,
   onUpdate,
+  onDelete,
 }: Props) {
   const [fieldOption, setFieldOption] = useState<FieldOption | "">(currentFieldOption(order));
   const [priceValue, setPriceValue] = useState(
@@ -486,6 +491,10 @@ export default function OrderRow({
             className={PILL_NEUTRAL}
           >
             {editingDriver ? "取消編輯" : "編輯"}
+          </button>
+        ) : order.status === null && onDelete ? (
+          <button type="button" onClick={() => void onDelete(order)} className={PILL_DANGER}>
+            刪除
           </button>
         ) : order.status === null ? (
           <button type="button" onClick={() => setVoidModalOpen(true)} className={PILL_DANGER}>
