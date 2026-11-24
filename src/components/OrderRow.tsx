@@ -494,7 +494,7 @@ export default function OrderRow({
           </button>
         ) : order.status === null && onDelete ? (
           <button type="button" onClick={() => void onDelete(order)} className={PILL_DANGER}>
-            刪除
+            要刪除嗎？
           </button>
         ) : order.status === null ? (
           <button type="button" onClick={() => setVoidModalOpen(true)} className={PILL_DANGER}>
