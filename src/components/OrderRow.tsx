@@ -488,9 +488,9 @@ export default function OrderRow({
           <button
             type="button"
             onClick={() => setVoidModalOpen(true)}
-            className="text-xs text-red-600 hover:underline"
+            className="rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-100"
           >
-            作廢
+            要作廢嗎？
           </button>
         ) : isVoided ? (
           <button
