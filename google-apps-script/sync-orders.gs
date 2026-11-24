@@ -70,6 +70,7 @@ const HEADERS = [
   "作廢原因",
   "建立時間",
   "更新時間",
+  "處理電腦",
 ];
 
 const CHANGE_TYPE_LABEL = {
@@ -253,6 +254,7 @@ function orderToRow(o) {
     o.void_reason || "",
     o.created_at,
     o.updated_at,
+    o.updated_by || "",
   ];
 }
 

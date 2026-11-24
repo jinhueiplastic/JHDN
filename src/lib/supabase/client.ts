@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { encodeDeviceHeader, getDeviceName } from "@/lib/device";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -15,7 +16,19 @@ if (typeof window !== "undefined" && (!supabaseUrl || !supabaseAnonKey)) {
   );
 }
 
+// Adds this computer's name to every request, read fresh each time so a
+// rename takes effect immediately. Database triggers record it on each
+// change (JHDN_orders.updated_by and JHDN_order_history.device).
+const fetchWithDevice: typeof fetch = (input, init) => {
+  const name = getDeviceName();
+  if (!name) return fetch(input, init);
+  const headers = new Headers(init?.headers);
+  headers.set("x-jhdn-device", encodeDeviceHeader(name));
+  return fetch(input, { ...init, headers });
+};
+
 export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder"
+  supabaseAnonKey || "placeholder",
+  { global: { fetch: fetchWithDevice } }
 );

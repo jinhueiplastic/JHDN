@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { OPEN_DEVICE_NAME_EVENT, useDeviceName } from "@/components/DeviceNameGate";
 
 const LINKS = [
   { href: "/", label: "首頁" },
@@ -17,6 +18,7 @@ const LINKS = [
 export default function NavMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const deviceName = useDeviceName();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -49,6 +51,16 @@ export default function NavMenu() {
               {link.label}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              window.dispatchEvent(new Event(OPEN_DEVICE_NAME_EVENT));
+            }}
+            className="mt-1 block w-full border-t border-neutral-100 px-4 py-2 text-left text-xs text-neutral-500 hover:bg-neutral-50"
+          >
+            這台電腦：{deviceName ?? "未命名"}（更改）
+          </button>
         </div>
       )}
     </div>

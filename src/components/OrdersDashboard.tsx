@@ -438,7 +438,8 @@ export default function OrdersDashboard() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     if (
-      !confirm(
+      !confirmBulk(
+        ids.length,
         `確定要把選取的 ${ids.length} 筆改回原始狀態嗎？（狀態、司機、外縣市、價格、未回單日期都會被清空）`
       )
     )
@@ -479,7 +480,7 @@ export default function OrdersDashboard() {
   async function handleBulkDelete() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    if (!confirm(`確定要刪除選取的 ${ids.length} 筆嗎？`)) return;
+    if (!confirmBulk(ids.length, `確定要刪除選取的 ${ids.length} 筆嗎？`)) return;
     const { error } = await supabase.from(TABLE).delete().in("id", ids);
     if (error) {
       alert(error.message);
@@ -792,6 +793,22 @@ export default function OrdersDashboard() {
       )}
     </div>
   );
+}
+
+// Wiping or deleting a handful of rows is a normal day; wiping a whole
+// board by accident (select-all, then the wrong button) is how a day's
+// work disappears. Past a few rows, make the user type the count back.
+const BULK_CONFIRM_THRESHOLD = 5;
+
+function confirmBulk(count: number, message: string): boolean {
+  if (count < BULK_CONFIRM_THRESHOLD) return confirm(message);
+  const typed = prompt(`${message}\n\n這會一次改動 ${count} 筆。請輸入「${count}」確認：`);
+  if (typed === null) return false;
+  if (typed.trim() !== String(count)) {
+    alert("輸入的數字不對，已取消。");
+    return false;
+  }
+  return true;
 }
 
 function FilterButton({

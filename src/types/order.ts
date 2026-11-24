@@ -30,6 +30,7 @@ export interface Order {
 
   created_at: string;
   updated_at: string;
+  updated_by?: string | null; // 最後修改這張單的電腦名稱（資料庫觸發器自動填入）
 }
 
 export type OrderInput = Pick<
