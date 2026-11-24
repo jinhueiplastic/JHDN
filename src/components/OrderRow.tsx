@@ -21,13 +21,13 @@ const CELL = "border-b border-neutral-100 px-2 py-3";
 // Shared pill-button looks so every action in the row reads as a button,
 // not a stray underlined word — same shape, colour says what it does.
 const PILL_DANGER =
-  "rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60";
+  "whitespace-nowrap rounded-full border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60";
 const PILL_WARN =
-  "rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
+  "whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
 const PILL_NEUTRAL =
-  "rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60";
+  "whitespace-nowrap rounded-full border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60";
 const PILL_SAVE =
-  "rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60";
+  "whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60";
 
 function isFieldOption(value: string | null): value is FieldOption {
   return (
@@ -278,8 +278,8 @@ export default function OrderRow({
           {order.out_of_county &&
             (editingOutOfCounty ? (
               <div className="flex flex-col items-center gap-1.5">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-neutral-400">原因:</span>
+                <div className="flex w-full items-center gap-1">
+                  <span className="shrink-0 whitespace-nowrap text-xs text-neutral-400">原因:</span>
                   <input
                     type="text"
                     value={reasonValue}
@@ -294,8 +294,8 @@ export default function OrderRow({
                     className="input w-28 py-0.5 text-xs disabled:opacity-60"
                   />
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-neutral-400">件數:</span>
+                <div className="flex w-full items-center gap-1">
+                  <span className="shrink-0 whitespace-nowrap text-xs text-neutral-400">件數:</span>
                   <input
                     ref={countInputRef}
                     type="number"
@@ -313,8 +313,8 @@ export default function OrderRow({
                     className="input w-20 py-0.5 text-xs disabled:opacity-60"
                   />
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-neutral-400">運費:</span>
+                <div className="flex w-full items-center gap-1">
+                  <span className="shrink-0 whitespace-nowrap text-xs text-neutral-400">運費:</span>
                   <input
                     ref={feeInputRef}
                     type="number"
@@ -473,7 +473,7 @@ export default function OrderRow({
           <MinguoDateInput
             value={unreturnedDateValue}
             onChange={commitUnreturnedDate}
-            className="w-32 py-1 text-sm"
+            className="w-28 py-1 text-sm"
           />
         )}
       </div>

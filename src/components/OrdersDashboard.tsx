@@ -105,6 +105,18 @@ export default function OrdersDashboard() {
   const [hydrated, setHydrated] = useState(false);
   const [needsPriceSnapshot, setNeedsPriceSnapshot] = useState<Set<string> | null>(null);
   const scrollRestoredRef = useRef(false);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+
+  // The header's own horizontal scroll is kept in sync with the row list's
+  // so wide columns scroll the two together instead of the header (which
+  // has no scrollbar of its own) spilling off the edge of the page.
+  function handleHeaderScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (bodyScrollRef.current) bodyScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  }
+  function handleBodyScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (headerScrollRef.current) headerScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  }
 
   // Restore the last-viewed date/tab from a previous visit. Reading
   // localStorage only after mount (not in the initial useState) keeps the
@@ -466,8 +478,11 @@ export default function OrdersDashboard() {
   // header grid lives inside the sticky toolbar itself (not sticky on its
   // own with a measured offset) so it rides along glued to the title/tabs
   // with zero gap, instead of needing its own top-offset math to stay in sync.
+  // Root font-size is 20px here, so this adds up to ~1230px — keep the total
+  // under the ~1238px the max-w container leaves, or the last column gets
+  // pushed off the right edge.
   const gridTemplateColumns =
-    "2.5rem 5.5rem 7rem 11rem minmax(14rem,1fr) 13rem 7rem 7.5rem";
+    "2.5rem 5rem 6rem 10rem minmax(14rem,1fr) 10rem 8rem 6rem";
   const thClass = "px-2 py-2 text-neutral-500";
 
   return (
@@ -669,37 +684,44 @@ export default function OrdersDashboard() {
         )}
 
         <div
-          className="grid min-w-[970px] rounded-t-lg border border-neutral-200 bg-neutral-50 text-left text-sm"
-          style={{ gridTemplateColumns }}
+          ref={headerScrollRef}
+          onScroll={handleHeaderScroll}
+          className="overflow-x-auto rounded-t-lg border border-neutral-200 bg-neutral-50"
         >
-          <div className={thClass}>
-            <input
-              type="checkbox"
-              checked={
-                visibleOrders.length > 0 &&
-                visibleOrders.every((o) => selectedIds.has(o.id))
-              }
-              onChange={toggleSelectAllVisible}
-              className="h-4 w-4 rounded border-neutral-300"
-            />
+          <div className="grid min-w-[970px] text-left text-sm" style={{ gridTemplateColumns }}>
+            <div className={thClass}>
+              <input
+                type="checkbox"
+                checked={
+                  visibleOrders.length > 0 &&
+                  visibleOrders.every((o) => selectedIds.has(o.id))
+                }
+                onChange={toggleSelectAllVisible}
+                className="h-4 w-4 rounded border-neutral-300"
+              />
+            </div>
+            <div className={thClass}>單號</div>
+            <div className={thClass}>狀態</div>
+            <div className={thClass}>外縣市</div>
+            <div className={thClass}>司機</div>
+            <div className={thClass}>價格</div>
+            <div className={thClass}>
+              {filter === "returned"
+                ? "已回單日期"
+                : filter === "voided"
+                  ? "作廢原因"
+                  : "未回單日期"}
+            </div>
+            <div className={thClass}></div>
           </div>
-          <div className={thClass}>單號</div>
-          <div className={thClass}>狀態</div>
-          <div className={thClass}>外縣市</div>
-          <div className={thClass}>司機</div>
-          <div className={thClass}>價格</div>
-          <div className={thClass}>
-            {filter === "returned"
-              ? "已回單日期"
-              : filter === "voided"
-                ? "作廢原因"
-                : "未回單日期"}
-          </div>
-          <div className={thClass}></div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-white">
+      <div
+        ref={bodyScrollRef}
+        onScroll={handleBodyScroll}
+        className="overflow-x-auto rounded-b-lg border border-t-0 border-neutral-200 bg-white"
+      >
         <div
           className="grid min-w-[970px] text-left text-sm"
           style={{ gridTemplateColumns }}
