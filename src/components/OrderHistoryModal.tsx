@@ -2,75 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { formatMinguoSlash, formatOrderNumber, Order, ORDER_STATUS_LABEL } from "@/types/order";
-
-const HISTORY_TABLE = "JHDN_order_history";
-
-interface HistoryEntry {
-  id: number;
-  changed_at: string;
-  op: "INSERT" | "UPDATE" | "DELETE";
-  device: string | null;
-  old_row: Record<string, unknown> | null;
-  new_row: Record<string, unknown> | null;
-}
-
-const FIELD_LABEL: Record<string, string> = {
-  status: "狀態",
-  driver_name: "司機",
-  out_of_county: "外縣市",
-  out_of_county_reason: "外縣市原因",
-  out_of_county_count: "外縣市件數",
-  out_of_county_fee: "運費",
-  price_field_option: "價格選項",
-  order_price: "填單價",
-  cash_sale_price: "現銷價",
-  invoice_price: "發票金額",
-  shipped_date: "出貨日",
-  unreturned_date: "未回單/已回單日期",
-  void_reason: "作廢原因",
-};
-
-const PRICE_OPTION_LABEL: Record<string, string> = {
-  order_price: "填單價",
-  cash_sale_price: "現銷價",
-  invoice_price: "發票金額",
-  shipped_date: "出貨日",
-};
-
-function formatValue(field: string, value: unknown): string {
-  if (value === null || value === undefined || value === "") return "（空）";
-  if (field === "status") return ORDER_STATUS_LABEL[value as keyof typeof ORDER_STATUS_LABEL] ?? String(value);
-  if (field === "out_of_county") return value ? "是" : "否";
-  if (field === "price_field_option") return PRICE_OPTION_LABEL[String(value)] ?? String(value);
-  if (field.endsWith("_date") && typeof value === "string") return formatMinguoSlash(value);
-  return String(value);
-}
-
-function describe(entry: HistoryEntry): string[] {
-  if (entry.op === "INSERT") return ["建立單號"];
-  if (entry.op === "DELETE") return ["刪除單號"];
-  const changes: string[] = [];
-  for (const field of Object.keys(FIELD_LABEL)) {
-    const before = entry.old_row?.[field] ?? null;
-    const after = entry.new_row?.[field] ?? null;
-    if (JSON.stringify(before) !== JSON.stringify(after)) {
-      changes.push(
-        `${FIELD_LABEL[field]}：${formatValue(field, before)} → ${formatValue(field, after)}`
-      );
-    }
-  }
-  return changes.length > 0 ? changes : ["（其他欄位變更）"];
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const date = formatMinguoSlash(
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-  );
-  const time = d.toLocaleTimeString("zh-TW", { hour12: false });
-  return `${date} ${time}`;
-}
+import { formatOrderNumber, Order } from "@/types/order";
+import { describe, formatTime, HISTORY_TABLE, HistoryEntry } from "@/lib/orderHistory";
 
 export default function OrderHistoryModal({ order, onClose }: { order: Order; onClose: () => void }) {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
@@ -115,6 +48,16 @@ export default function OrderHistoryModal({ order, onClose }: { order: Order; on
           >
             ×
           </button>
+        </div>
+        <div className="border-b border-neutral-100 px-5 py-2 text-right">
+          <a
+            href={`/history?date=${order.order_date}&no=${order.order_number}`}
+            target="_blank"
+            rel="noopener"
+            className="text-sm font-medium text-neutral-700 underline hover:text-neutral-900"
+          >
+            到紀錄頁復原 →
+          </a>
         </div>
         <div className="overflow-y-auto px-5 py-3 text-sm">
           {error ? (
