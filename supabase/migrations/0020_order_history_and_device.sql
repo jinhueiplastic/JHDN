@@ -19,6 +19,7 @@ create or replace function public.jhdn_current_device()
 returns text
 language plpgsql
 stable
+set search_path = public
 as $$
 declare
   override text := nullif(current_setting('jhdn.device', true), '');
@@ -46,6 +47,7 @@ $$;
 create or replace function public.jhdn_stamp_updated_by()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_by := public.jhdn_current_device();
