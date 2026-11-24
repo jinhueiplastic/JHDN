@@ -16,7 +16,18 @@ const PRICE_LABELS: Record<PriceField, string> = {
   invoice_price: "發票金額",
 };
 
-const CELL = "border-b border-neutral-100 px-2 py-2";
+const CELL = "border-b border-neutral-100 px-2 py-3";
+
+// Shared pill-button looks so every action in the row reads as a button,
+// not a stray underlined word — same shape, colour says what it does.
+const PILL_DANGER =
+  "rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60";
+const PILL_WARN =
+  "rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60";
+const PILL_NEUTRAL =
+  "rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60";
+const PILL_SAVE =
+  "rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60";
 
 function isFieldOption(value: string | null): value is FieldOption {
   return (
@@ -239,14 +250,14 @@ export default function OrderRow({
 
       <div className={CELL}>
         {order.status !== null && (
-          <div className="flex flex-col items-start gap-1">
+          <div className="flex flex-col items-start gap-1.5">
             <StatusBadge status={order.status} />
             {isReturned && (
               <button
                 type="button"
                 disabled={reverting}
                 onClick={() => void handleRevertToUnreturned()}
-                className="text-xs text-neutral-400 hover:underline disabled:opacity-60"
+                className={PILL_NEUTRAL}
               >
                 改回未回單
               </button>
@@ -266,7 +277,7 @@ export default function OrderRow({
           />
           {order.out_of_county &&
             (editingOutOfCounty ? (
-              <>
+              <div className="flex flex-col items-center gap-1.5">
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-neutral-400">原因:</span>
                   <input
@@ -325,13 +336,13 @@ export default function OrderRow({
                   type="button"
                   disabled={isVoided}
                   onClick={() => void commitOutOfCountyDetails()}
-                  className="rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+                  className={PILL_SAVE}
                 >
                   儲存
                 </button>
-              </>
+              </div>
             ) : (
-              <div className="flex flex-col items-center gap-0.5 text-xs text-neutral-600">
+              <div className="flex flex-col items-center gap-1.5 text-xs text-neutral-600">
                 <span>原因: {reasonValue || "-"}</span>
                 <span>件數: {countValue || "-"}</span>
                 <span>運費: {feeValue || "-"}</span>
@@ -339,7 +350,7 @@ export default function OrderRow({
                   type="button"
                   disabled={isVoided}
                   onClick={() => setEditingOutOfCounty(true)}
-                  className="text-neutral-400 hover:underline disabled:opacity-60"
+                  className={PILL_NEUTRAL}
                 >
                   編輯
                 </button>
@@ -378,7 +389,7 @@ export default function OrderRow({
                 type="button"
                 disabled={promoting}
                 onClick={() => void handlePromote()}
-                className="mt-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+                className={`mt-2 ${PILL_WARN}`}
               >
                 未回單
               </button>
@@ -391,7 +402,7 @@ export default function OrderRow({
 
       <div className={CELL}>
         {isReturned && !editingPrice ? (
-          <div className="flex flex-col items-start gap-0.5 text-xs text-neutral-600">
+          <div className="flex flex-col items-start gap-1.5 text-xs text-neutral-600">
             <span>
               {fieldOption === "shipped_date"
                 ? `實際出貨日: ${shippedDate ? formatMinguoSlash(shippedDate) : "-"}`
@@ -399,16 +410,12 @@ export default function OrderRow({
                   ? `${PRICE_LABELS[fieldOption]}: ${priceValue || "-"}`
                   : "-"}
             </span>
-            <button
-              type="button"
-              onClick={() => setEditingPrice(true)}
-              className="text-neutral-400 hover:underline"
-            >
+            <button type="button" onClick={() => setEditingPrice(true)} className={PILL_NEUTRAL}>
               編輯
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-start gap-1">
+          <div className="flex flex-col items-start gap-1.5">
             <select
               value={fieldOption}
               disabled={isVoided}
@@ -451,11 +458,7 @@ export default function OrderRow({
               )
             )}
             {isReturned && fieldOption && (
-              <button
-                type="button"
-                onClick={() => void commitFieldOption()}
-                className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-700"
-              >
+              <button type="button" onClick={() => void commitFieldOption()} className={PILL_SAVE}>
                 儲存
               </button>
             )}
@@ -480,23 +483,19 @@ export default function OrderRow({
           <button
             type="button"
             onClick={() => setEditingDriver((v) => !v)}
-            className="text-xs text-neutral-500 hover:underline"
+            className={PILL_NEUTRAL}
           >
             {editingDriver ? "取消編輯" : "編輯"}
           </button>
         ) : order.status === null ? (
-          <button
-            type="button"
-            onClick={() => setVoidModalOpen(true)}
-            className="rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-100"
-          >
+          <button type="button" onClick={() => setVoidModalOpen(true)} className={PILL_DANGER}>
             要作廢嗎？
           </button>
         ) : isVoided ? (
           <button
             type="button"
             onClick={() => void onUpdate(order, { status: null, void_reason: null })}
-            className="text-xs text-neutral-400 hover:underline"
+            className={PILL_NEUTRAL}
           >
             恢復
           </button>

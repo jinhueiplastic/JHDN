@@ -467,7 +467,7 @@ export default function OrdersDashboard() {
   // own with a measured offset) so it rides along glued to the title/tabs
   // with zero gap, instead of needing its own top-offset math to stay in sync.
   const gridTemplateColumns =
-    "2.5rem 5.5rem 6rem 11rem minmax(14rem,1fr) 13rem 7rem 4rem";
+    "2.5rem 5.5rem 7rem 11rem minmax(14rem,1fr) 13rem 7rem 7.5rem";
   const thClass = "px-2 py-2 text-neutral-500";
 
   return (
