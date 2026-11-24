@@ -71,6 +71,16 @@ export default function OrderRestoreView({ initialDate, initialNumber }: Props) 
     setAdminChecked(false);
   }
 
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return (
+      <Shell>
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          這個網址沒有設定 Supabase 連線（NEXT_PUBLIC_SUPABASE_URL），請到 Vercel 的環境變數設定。
+        </p>
+      </Shell>
+    );
+  }
+
   if (!authReady) {
     return <Shell><p className="text-neutral-400">載入中…</p></Shell>;
   }
@@ -140,7 +150,13 @@ function LoginForm() {
     setError(null);
     const { error } = await adminSupabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
-    if (error) setError("登入失敗，請確認 Email 和密碼。");
+    if (error) {
+      setError(
+        error.message === "Invalid login credentials"
+          ? "登入失敗，請確認 Email 和密碼。"
+          : `登入失敗：${error.message}`
+      );
+    }
   }
 
   return (
