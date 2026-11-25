@@ -15,6 +15,7 @@ import {
 } from "@/lib/orderHistory";
 import { formatMinguoSlash, formatOrderNumber, Order } from "@/types/order";
 import StatusBadge from "@/components/StatusBadge";
+import InfoTip from "@/components/InfoTip";
 
 const ORDERS_TABLE = "JHDN_orders";
 const ADMINS_TABLE = "JHDN_admins";
@@ -310,15 +311,20 @@ function RestorePanel({
           </section>
 
           <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
               修改紀錄
-              <span className="ml-3 text-sm font-normal text-neutral-500">
-                最新的在最上面。按「復原成這個樣子」會把這張單改回那次修改完後的內容。
-              </span>
+              <InfoTip label="修改紀錄說明">
+                <span className="block">・最新的在最上面。</span>
+                <span className="block">・按「復原成這個樣子」會把這張單改回那次修改完後的內容。</span>
+                <span className="block">
+                  ・復原後會多一筆「還原（{adminName}）」的紀錄，復原錯了也可以再復原回來。
+                </span>
+                <span className="block">・紀錄從 115/11/24 下午開始保存，之前的修改查不到。</span>
+              </InfoTip>
             </h2>
             {entries.length === 0 ? (
               <p className="rounded-xl border border-neutral-200 bg-white p-5 text-neutral-500">
-                這張單還沒有紀錄（115/11/24 下午之後的修改才會出現）。
+                這張單還沒有紀錄。
               </p>
             ) : (
               <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
@@ -362,9 +368,6 @@ function RestorePanel({
                 })}
               </ul>
             )}
-            <p className="text-sm text-neutral-500">
-              復原後會多一筆「還原（{adminName}）」的紀錄，復原錯了也可以再復原回來。
-            </p>
           </section>
         </>
       )}
@@ -432,8 +435,16 @@ function ConfirmRestoreModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16" onClick={onCancel}>
       <div role="dialog" aria-modal="true" className="flex w-full max-w-xl flex-col gap-5 rounded-xl bg-white p-7 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-xl font-bold">
-            把單號 {formatOrderNumber(entry.order_number)} 復原成 {formatTime(entry.changed_at)} 的樣子？
+          <h2 className="flex items-start gap-2 text-xl font-bold">
+            <span>
+              把單號 {formatOrderNumber(entry.order_number)} 復原成 {formatTime(entry.changed_at)} 的樣子？
+            </span>
+            <InfoTip label="復原說明" align="right">
+              <span className="block">・表格只列出會變動的欄位。</span>
+              <span className="block">
+                ・復原會留下一筆「還原（{adminName}）」的紀錄，之後可以再復原回來。
+              </span>
+            </InfoTip>
           </h2>
           <p className="mt-1 text-sm text-neutral-600">
             {formatMinguoSlash(entry.order_date)}　{entry.device ?? "未知"} 在這個時間改完後的內容
@@ -463,9 +474,6 @@ function ConfirmRestoreModal({
             </table>
           </div>
         )}
-        <p className="text-sm text-neutral-600">
-          只列出會變動的欄位。復原會留下一筆「還原（{adminName}）」的紀錄，之後可以再復原回來。
-        </p>
         {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onCancel} className="h-11 rounded-md border border-neutral-300 px-5 hover:bg-neutral-50">
