@@ -25,6 +25,12 @@ function localToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 interface Props {
   initialDate: string;
   initialNumber: string;
@@ -240,6 +246,30 @@ function RestorePanel({
     if (query) void load(query);
   }, [query, load]);
 
+  function openOrder(date: string, no: number) {
+    setDateInput(date);
+    setNumberInput(String(no));
+    setNotice(null);
+    setError(null);
+    setQuery({ date, no });
+    window.history.replaceState(null, "", `/history?date=${date}&no=${no}`);
+  }
+
+  function handleShiftDate(days: number) {
+    const next = shiftDate(dateInput || localToday(), days);
+    setDateInput(next);
+    if (query) openOrder(next, query.no);
+  }
+
+  function backToList() {
+    setQuery(null);
+    setEntries(null);
+    setOrder(null);
+    setNotice(null);
+    setError(null);
+    window.history.replaceState(null, "", "/history");
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const n = parseInt(numberInput, 10);
@@ -268,7 +298,25 @@ function RestorePanel({
       <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-white p-5">
         <label className="flex flex-col gap-1.5 text-sm text-neutral-600">
           日期
-          <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className="input h-11" />
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleShiftDate(-1)}
+              aria-label="前一天"
+              className="h-11 w-11 rounded-md border border-neutral-300 bg-white text-lg hover:bg-neutral-50"
+            >
+              ‹
+            </button>
+            <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className="input h-11" />
+            <button
+              type="button"
+              onClick={() => handleShiftDate(1)}
+              aria-label="後一天"
+              className="h-11 w-11 rounded-md border border-neutral-300 bg-white text-lg hover:bg-neutral-50"
+            >
+              ›
+            </button>
+          </span>
         </label>
         <label className="flex flex-col gap-1.5 text-sm text-neutral-600">
           單號
@@ -282,6 +330,18 @@ function RestorePanel({
       {error && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">{notice}</p>}
       {loading && <p className="text-neutral-400">載入中…</p>}
+
+      {!query && <RecentChanges date={dateInput || localToday()} onOpen={openOrder} />}
+
+      {query && (
+        <button
+          type="button"
+          onClick={backToList}
+          className="self-start text-sm text-neutral-600 underline hover:text-neutral-900"
+        >
+          ← 看 {formatMinguoSlash(dateInput || localToday())} 被修改過的單
+        </button>
+      )}
 
       {query && entries && !loading && (
         <>
@@ -382,6 +442,109 @@ function RestorePanel({
         />
       )}
     </>
+  );
+}
+
+// Orders changed on `date` (by when the change happened), latest first,
+// one row per order. Skips the system's automatic creation of each day's
+// blank orders, which would otherwise fill the list.
+function RecentChanges({
+  date,
+  onOpen,
+}: {
+  date: string;
+  onOpen: (date: string, no: number) => void;
+}) {
+  const [rows, setRows] = useState<HistoryEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setRows(null);
+      setError(null);
+      const start = new Date(`${date}T00:00:00`).toISOString();
+      const end = new Date(`${shiftDate(date, 1)}T00:00:00`).toISOString();
+      const { data, error } = await adminSupabase
+        .from(HISTORY_TABLE)
+        .select("*")
+        .gte("changed_at", start)
+        .lt("changed_at", end)
+        .neq("device", "系統")
+        .order("changed_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1000);
+      if (cancelled) return;
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      const seen = new Set<string>();
+      const latest: HistoryEntry[] = [];
+      for (const entry of data as HistoryEntry[]) {
+        const key = `${entry.order_date}#${entry.order_number}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        latest.push(entry);
+      }
+      setRows(latest);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        {formatMinguoSlash(date)} 被修改過的單
+        {rows && <span className="text-sm font-normal text-neutral-500">（{rows.length} 張）</span>}
+        <InfoTip label="清單說明">
+          <span className="block">・列出這一天有人修改過的單，最近改的在最上面。</span>
+          <span className="block">・每張單只列最後一次修改，點一下就能看完整紀錄和復原。</span>
+          <span className="block">・用日期旁的 ‹ › 換天。系統每天自動建立空白單號不算在內。</span>
+        </InfoTip>
+      </h2>
+      {error ? (
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      ) : rows === null ? (
+        <p className="text-neutral-400">載入中…</p>
+      ) : rows.length === 0 ? (
+        <p className="rounded-xl border border-neutral-200 bg-white p-5 text-neutral-500">這天沒有修改紀錄。</p>
+      ) : (
+        <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
+          {rows.map((entry) => {
+            const lines = describe(entry);
+            const reset = isResetEntry(entry);
+            return (
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(entry.order_date, entry.order_number)}
+                  className={`flex w-full flex-wrap items-center gap-4 px-5 py-3 text-left hover:bg-neutral-50 ${
+                    entry.op === "DELETE" ? "bg-red-50" : reset ? "bg-orange-50" : ""
+                  }`}
+                >
+                  <span className="w-28">
+                    <span className="block font-mono text-lg font-semibold">{formatOrderNumber(entry.order_number)}</span>
+                    <span className="block text-xs text-neutral-500">{formatMinguoSlash(entry.order_date)} 的單</span>
+                  </span>
+                  <span className="w-32 text-sm">
+                    <span className="block font-medium">{formatTime(entry.changed_at).split(" ")[1]}</span>
+                    <span className="block text-neutral-600">{entry.device ?? "未知"}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 basis-60 truncate text-sm text-neutral-700">
+                    {reset ? "改回原始狀態" : lines[0]}
+                    {!reset && lines.length > 1 && ` 等 ${lines.length} 項`}
+                  </span>
+                  <span className="text-neutral-400" aria-hidden="true">›</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
